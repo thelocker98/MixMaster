@@ -12,7 +12,6 @@ var deviceData *serial.DeviceData
 
 func main() {
 	cfg := config.ParseConfig("config.yaml")
-	fmt.Println(cfg.SliderInvert)
 
 	client, err := pulse.CreatePulseClient("mydeej")
 
@@ -32,20 +31,14 @@ func main() {
 	for {
 		// Read from channel whenever new data arrives
 		deviceData = <-dataChan
-		fmt.Println("Received from task:", deviceData.Volume)
 
-		if len(deviceData.Volume) < 4 {
-			fmt.Println("error")
+		sessions, err := client.GetAudioSessions()
+
+		if err != nil || len(deviceData.Volume) < 4 {
 			continue
 		}
 
-		for name, num := range cfg.SliderMapping {
-			if name == "master" {
-				client.ChangeMasterVolume("master", deviceData.Volume[num])
-			} else {
-				client.ChangeAppVolume(name, deviceData.Volume[num])
-			}
-
-		}
+		sessions.ChangeAppVolume(cfg, deviceData.Volume, client)
+		sessions.ChangeMasterVolume(cfg, deviceData.Volume, client)
 	}
 }

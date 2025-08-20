@@ -8,7 +8,8 @@ import (
 )
 
 type Config struct {
-	SliderMapping map[string]int `yaml:"slider_mapping"`
+	AppSliderMapping    map[string]int `yaml:"app-sliders"`
+	MasterSliderMapping map[string]int `yaml:"master-sliders"`
 
 	SliderInvert   bool   `yaml:"invert_sliders"`
 	COMPort        string `yaml:"com_port"`

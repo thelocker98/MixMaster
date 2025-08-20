@@ -25,9 +25,9 @@
 
 ```yaml
 slider_mapping:
-  0: master
-  1: chrome
-  2: spotify
+  master: 0
+  chrome: 1
+  spotify: 2
 
 invert_sliders: false
 com_port: /dev/ttyUSB0
