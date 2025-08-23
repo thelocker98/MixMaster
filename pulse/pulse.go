@@ -12,9 +12,10 @@ type pulseAudio struct {
 	client *proto.Client
 }
 
-type appSessions struct {
-	Masters map[string]*proto.GetSinkInfoReply
-	Apps    map[string]*proto.GetSinkInputInfoReply
+type AppSessions struct {
+	Masters  map[string]*proto.GetSinkInfoReply
+	Apps     map[string]*proto.GetSinkInputInfoReply
+	AppNames []string
 }
 
 const maxVolume = 0x10000
@@ -40,7 +41,7 @@ func (c *pulseAudio) GetAppVolume(appName string) (*float32, error) {
 	return nil, fmt.Errorf(": %s", appName)
 }
 
-func (sessions *appSessions) ChangeAppVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
+func (sessions *AppSessions) ChangeAppVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
 	unmappedSlider, unmappedOk := cfg.AppSliderMapping["unmapped"]
 
 	for name, info := range sessions.Apps {
@@ -70,7 +71,7 @@ func (sessions *appSessions) ChangeAppVolume(cfg *config.Config, volume []float3
 	return nil
 }
 
-func (sessions *appSessions) ChangeMasterVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
+func (sessions *AppSessions) ChangeMasterVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
 	masterSlider, masterOk := cfg.MasterSliderMapping["master"]
 
 	for name, info := range sessions.Masters {
@@ -130,8 +131,8 @@ func (c *pulseAudio) GetMasterVolume(name string) (*float32, error) {
 	return nil, fmt.Errorf("Failed to find audio ouput named: %s", name)
 }
 
-func (c *pulseAudio) GetAudioSessions() (*appSessions, error) {
-	data := &appSessions{
+func (c *pulseAudio) GetAudioSessions() (*AppSessions, error) {
+	data := &AppSessions{
 		Masters: make(map[string]*proto.GetSinkInfoReply),
 		Apps:    make(map[string]*proto.GetSinkInputInfoReply),
 	}
@@ -149,8 +150,10 @@ func (c *pulseAudio) GetAudioSessions() (*appSessions, error) {
 
 		if okApp {
 			data.Apps[appName.String()] = info
+			data.AppNames = append(data.AppNames, appName.String())
 		} else if okNode {
 			data.Apps[nodeName.String()] = info
+			data.AppNames = append(data.AppNames, appName.String())
 		} else {
 			continue
 		}
@@ -206,7 +209,7 @@ func parseChannelVolumes(volumes []uint32) *float32 {
 	return &vol
 }
 
-func (sessions *appSessions) DisplayAppNames() {
+func (sessions *AppSessions) DisplayAppNames() {
 	fmt.Println("       Audio Devices and Apps:")
 	fmt.Println("List of Open Audio Apps:")
 	fmt.Println("- unmapped")
