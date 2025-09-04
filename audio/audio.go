@@ -41,27 +41,18 @@ func (conn *DBusConnection) ConnectToApps(sessions *pulse.AppSessions) (*Players
 
 	for _, name := range names {
 		player := mpris.New(conn.Conn, name)
-		playerName := player.GetShortName()
+		playerName := strings.ToLower(strings.Split(player.GetShortName(), ".")[0])
 
-		appName, err := bestMatchFZ(strings.Split(playerName, ".")[0], sessions.AppNames)
-
-		// fmt.Println("\napp:")
-		// fmt.Print(strings.Split(playerName, ".")[0])
-		// fmt.Print(" - ")
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		// fmt.Println(string(*appName))
-
-		audioPlayers[*appName] = player
+		audioPlayers[playerName] = player
 	}
 	return &audioPlayers, nil
 }
 
 func (p Players) PausePlay(cfg *config.Config, deviceData *serial.DeviceData) {
 	for name, val := range p {
+		if _, ok := cfg.Buttons[name]; !ok {
+			continue
+		}
 		if deviceData.Button[cfg.Buttons[name]] {
 			val.PlayPause()
 		}
