@@ -3,14 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 
 	"gitea.locker98.com/locker98/Mixmaster/audio"
 	"gitea.locker98.com/locker98/Mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/device"
 	"gitea.locker98.com/locker98/Mixmaster/pulse"
-	"gitea.locker98.com/locker98/Mixmaster/serial"
 )
 
-var deviceData *serial.DeviceData
+var deviceData *device.DeviceData
 
 var (
 	configFile   = flag.String("config", "config.yaml", "config.yaml file to custom Mix Master")
@@ -41,19 +42,24 @@ func main() {
 	}
 
 	// Create channel to receive data
-	dataChan := make(chan *serial.DeviceData)
+	dataChan := make(chan *device.DeviceData)
 
-	// Set up Serial
-	p := serial.InitializeConnection(cfg)
+	// Set up Device
+	d, err := device.InitializeConnectionHID(cfg)
+	if err != nil {
+		log.Fatalf("Error Initializing Device: %s", err)
+	}
 
 	// Start Background program
-	go serial.ReadDeviceData(p, cfg, dataChan)
-	// Get COunt form config to make sure that their is enough slider and button valuse from the hardware
+	go device.ReadDeviceDataHID(d, cfg, dataChan)
+
+	// Get Count form config to make sure that their is enough slider and button valuse from the hardware
 	sliderCount, buttonCount := findNumberChannelCount(cfg)
 
 	for {
 		// Read from channel whenever new data arrives
 		deviceData = <-dataChan
+
 		// Get pulse audio sessions
 		sessions, err := client.GetAudioSessions()
 
@@ -61,7 +67,7 @@ func main() {
 		players, err1 := mpris.ConnectToApps(sessions)
 
 		if err != nil || err1 != nil || len(deviceData.Volume) < sliderCount || len(deviceData.Button) < buttonCount {
-			fmt.Print("wrong number of sliders: ")
+			fmt.Println("wrong number of sliders: ")
 			continue
 		}
 

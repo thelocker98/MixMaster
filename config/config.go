@@ -16,6 +16,8 @@ type Config struct {
 	COMPort        string `yaml:"com_port"`
 	BaudRate       int    `yaml:"baud_rate"`
 	NoiseReduction string `yaml:"noise_reduction"`
+	VID            uint16 `yaml:"usb_vid"`
+	PID            uint16 `yaml:"usb_pid"`
 }
 
 func ParseConfig(path string) *Config {

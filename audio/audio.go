@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"gitea.locker98.com/locker98/Mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/device"
 	"gitea.locker98.com/locker98/Mixmaster/pulse"
-	"gitea.locker98.com/locker98/Mixmaster/serial"
 	"github.com/Endg4meZer0/go-mpris"
 	"github.com/godbus/dbus/v5"
 	"github.com/sahilm/fuzzy"
@@ -48,7 +48,7 @@ func (conn *DBusConnection) ConnectToApps(sessions *pulse.AppSessions) (*Players
 	return &audioPlayers, nil
 }
 
-func (p Players) PausePlay(cfg *config.Config, deviceData *serial.DeviceData) {
+func (p Players) PausePlay(cfg *config.Config, deviceData *device.DeviceData) {
 	for name, val := range p {
 		if _, ok := cfg.Buttons[name]; !ok {
 			continue
