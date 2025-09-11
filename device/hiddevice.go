@@ -1,6 +1,10 @@
 package device
 
 import (
+	"errors"
+	"fmt"
+	"time"
+
 	"gitea.locker98.com/locker98/Mixmaster/config"
 	hid "github.com/sstallion/go-hid"
 )
@@ -24,12 +28,26 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 	in := make([]byte, 64)
 	var clean []byte
 
+	var dev hid.Device
+
+	dev = *d
+
 	for {
+		buf := make([]byte, 64) // automatically filled with zeros
+		for i := range buf {
+			buf[i] = 0
+		}
+		buf[0] = 5
+		if _, err := dev.Write(buf); err != nil {
+			fmt.Println("Write error:")
+		}
+
 		// Try to read a packet
 		clean = []byte{}
-		for {
+		deadline := time.Now().Add(1000 * time.Millisecond)
+		for time.Now().Before(deadline) {
 			// Read requested state.
-			if _, err := d.Read(in); err != nil {
+			if _, err := dev.Read(in); err != nil {
 				break
 			}
 			// Remove trailing zeros
@@ -49,7 +67,21 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 		}
 
 		values := parseDeviceData(clean, cfg.SliderInvert)
+		if values.err != nil {
+			var t *hid.Device
+			var err error
+			err = errors.New("test")
+			for err != nil {
+				fmt.Println("searching for new device")
+				time.Sleep(1 * time.Second)
+				t, err = InitializeConnectionHID(cfg)
+			}
+
+			dev = *t
+		}
 
 		out <- values
+
+		time.Sleep(10 * time.Millisecond)
 	}
 }

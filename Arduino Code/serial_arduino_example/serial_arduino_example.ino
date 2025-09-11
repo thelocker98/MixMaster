@@ -41,14 +41,14 @@ void updateButtons() {
 }
 
 void sendJsonPacket() {
-  Serial.print("{\"slidders\":[");
+  Serial.print("{\"s\":[");
   for (int i = 0; i < NUM_SLIDERS; i++) {
     Serial.print(analogSliderValues[i] / 4); // scale 0–1023 → 0–255
     if (i < NUM_SLIDERS - 1) {
       Serial.print(",");
     }
   }
-  Serial.print("], \"buttons\":[");
+  Serial.print("], \"b\":[");
   for (int i = 0; i < NUM_BUTTONS; i++) {
     Serial.print(buttonStates[i]);
     if (i < NUM_BUTTONS - 1) {

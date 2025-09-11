@@ -2,14 +2,11 @@
 # you can use 'unmapped' to control all apps that aren't bound to any slider (this ignores master, system, mic and device-targeting sessions)
 # important: slider indexes start at 0, regardless of which analog pins you're using!
 app-sliders:
-  unmapped: 3
-  vivaldi-bin: 2
-  thorium: 1
-  vlc: 1
+  unmapped: 2
+  vivaldi-bin: 1
   brave: 0
 master-sliders:
-  #analog-stereo: 4
-  master: 4
+  master: 3
 
 button:
   vivaldi-bin: 0
@@ -18,9 +15,5 @@ button:
 invert_sliders: false
 
 # settings for connecting to the arduino board
-com_port: /dev/ttyUSB0
+com_port: /dev/ttyUSB1
 baud_rate: 115200
-
-# adjust the amount of signal noise reduction depending on your hardware quality
-# supported values are "default" (regular hardware) or "high" (bad, noisy hardware)
-noise_reduction: default

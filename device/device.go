@@ -2,7 +2,6 @@ package device
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 )
 
@@ -26,7 +25,6 @@ func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 	var msg arduinoMsg
 	err := json.Unmarshal(buf, &msg)
 	if err != nil {
-		fmt.Println("parse error:", err)
 		return &DeviceData{
 			Volume: nil,
 			Button: nil,

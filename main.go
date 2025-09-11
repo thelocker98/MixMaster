@@ -45,13 +45,23 @@ func main() {
 	dataChan := make(chan *device.DeviceData)
 
 	// Set up Device
-	d, err := device.InitializeConnectionHID(cfg)
-	if err != nil {
-		log.Fatalf("Error Initializing Device: %s", err)
+	if cfg.PID != 0 && cfg.VID != 0 && cfg.COMPort == "" && cfg.BaudRate == 0 {
+		fmt.Println("HID Mode")
+		d, err := device.InitializeConnectionHID(cfg)
+		if err != nil {
+			log.Fatalf("Error Initializing Device: %s", err)
+		}
+		// Start Background program
+		go device.ReadDeviceDataHID(d, cfg, dataChan)
+	} else {
+		fmt.Println("Serial Mode")
+		d, err := device.InitializeConnection(cfg)
+		if err != nil {
+			log.Fatalf("Error Initializing Device: %s", err)
+		}
+		// Start Background program
+		go device.ReadDeviceData(d, cfg, dataChan)
 	}
-
-	// Start Background program
-	go device.ReadDeviceDataHID(d, cfg, dataChan)
 
 	// Get Count form config to make sure that their is enough slider and button valuse from the hardware
 	sliderCount, buttonCount := findNumberChannelCount(cfg)
