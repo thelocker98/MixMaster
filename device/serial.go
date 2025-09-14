@@ -2,6 +2,7 @@ package device
 
 import (
 	"bufio"
+	"errors"
 	"time"
 
 	"gitea.locker98.com/locker98/Mixmaster/config"
@@ -29,8 +30,16 @@ func ReadDeviceData(s *serial.Port, cfg *config.Config, out chan<- *DeviceData) 
 	r := bufio.NewReader(s)
 
 	for {
-		data, err := r.ReadBytes('\n')
-		if err != nil {
+		data, errReading := r.ReadBytes('\n')
+		if errReading != nil {
+
+			var err error
+			err = errors.New("Trying to Initialize")
+
+			for err != nil {
+				s, err = InitializeConnection(cfg)
+			}
+			r = bufio.NewReader(s)
 			continue
 		}
 

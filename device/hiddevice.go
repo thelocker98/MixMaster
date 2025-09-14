@@ -28,17 +28,13 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 	in := make([]byte, 64)
 	var clean []byte
 
-	var dev hid.Device
-
-	dev = *d
-
 	for {
 		buf := make([]byte, 64) // automatically filled with zeros
 		for i := range buf {
 			buf[i] = 0
 		}
 		buf[0] = 5
-		if _, err := dev.Write(buf); err != nil {
+		if _, err := d.Write(buf); err != nil {
 			fmt.Println("Write error:")
 		}
 
@@ -47,7 +43,7 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 		deadline := time.Now().Add(1000 * time.Millisecond)
 		for time.Now().Before(deadline) {
 			// Read requested state.
-			if _, err := dev.Read(in); err != nil {
+			if _, err := d.Read(in); err != nil {
 				break
 			}
 			// Remove trailing zeros
@@ -68,16 +64,15 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 
 		values := parseDeviceData(clean, cfg.SlidderInvert)
 		if values.err != nil {
-			var t *hid.Device
 			var err error
-			err = errors.New("test")
+			err = errors.New("Trying to Initialize")
 			for err != nil {
 				fmt.Println("searching for new device")
 				time.Sleep(1 * time.Second)
-				t, err = InitializeConnectionHID(cfg)
+				d, err = InitializeConnectionHID(cfg)
 			}
 
-			dev = *t
+			continue
 		}
 
 		out <- values
