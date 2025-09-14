@@ -18,6 +18,10 @@ var (
 	showSessions = flag.Bool("show-sessions", false, "Enable debug mode")
 )
 
+// Hash of Volume and Button slice to detect change from device
+var volumeHash string
+var buttonHash string
+
 func main() {
 	// Parse Flags
 	flag.Parse()
@@ -77,24 +81,15 @@ func main() {
 			continue
 		}
 
-		sessions.ChangeAppVolume(cfg, deviceData.Volume, client)
-		sessions.ChangeMasterVolume(cfg, deviceData.Volume, client)
-		players.PausePlay(cfg, deviceData)
-	}
-}
+		if hash, _ := device.HashSlice(deviceData.Volume); hash != volumeHash {
+			volumeHash, _ = device.HashSlice(deviceData.Volume)
+			sessions.ChangeAppVolume(cfg, deviceData.Volume, client)
+			sessions.ChangeMasterVolume(cfg, deviceData.Volume, client)
+		}
 
-func findNumberChannelCount(cfg *config.Config) int {
-	// Count Number of Sliders in Config
-	totalSliderCount := 0
-	for val := range len(cfg.AppSlidderMapping) {
-		if val > totalSliderCount {
-			totalSliderCount = val
+		if hash, _ := device.HashSlice(deviceData.Button); hash != buttonHash {
+			buttonHash, _ = device.HashSlice(deviceData.Button)
+			players.PausePlay(cfg, deviceData)
 		}
 	}
-	for val := range len(cfg.MasterSlidderMapping) {
-		if val > totalSliderCount {
-			totalSliderCount = val
-		}
-	}
-	return totalSliderCount
 }

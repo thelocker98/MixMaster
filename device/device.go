@@ -1,6 +1,8 @@
 package device
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -60,4 +62,13 @@ func GetAt[T any](array []T, index int) (T, error) {
 		return zero, fmt.Errorf("index %d out of range [0,%d)", index, len(array))
 	}
 	return array[index], nil
+}
+
+func HashSlice[T any](slice []T) (string, error) {
+	b, err := json.Marshal(slice)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:]), nil
 }
