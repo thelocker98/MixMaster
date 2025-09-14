@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"gitea.locker98.com/locker98/Mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/device"
 	"github.com/jfreymuth/pulse/proto"
 )
 
@@ -42,24 +43,35 @@ func (c *pulseAudio) GetAppVolume(appName string) (*float32, error) {
 }
 
 func (sessions *AppSessions) ChangeAppVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
-	unmappedSlider, unmappedOk := cfg.AppSliderMapping["unmapped"]
+	unmappedSlider, unmappedOk := cfg.AppSlidderMapping["unmapped"]
 
 	for name, info := range sessions.Apps {
-		val, Ok := cfg.AppSliderMapping[name]
+		val, Ok := cfg.AppSlidderMapping[name]
 
-		if Ok {
-			request := proto.SetSinkInputVolume{
-				SinkInputIndex: info.SinkInputIndex,
-				ChannelVolumes: []uint32{uint32(maxVolume * volume[val])}, // volume
+		if Ok && val.Slidder != -1 {
+			vol, err := device.GetAt(volume, val.Slidder)
+
+			if err != nil {
+				continue
 			}
 
+			request := proto.SetSinkInputVolume{
+				SinkInputIndex: info.SinkInputIndex,
+				ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
+			}
 			if err := c.client.Request(&request, nil); err != nil {
 				continue
 			}
 		} else if unmappedOk {
+			vol, err := device.GetAt(volume, unmappedSlider.Slidder)
+
+			if err != nil {
+				continue
+			}
+
 			request := proto.SetSinkInputVolume{
 				SinkInputIndex: info.SinkInputIndex,
-				ChannelVolumes: []uint32{uint32(maxVolume * volume[unmappedSlider])}, // volume
+				ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
 			}
 
 			if err := c.client.Request(&request, nil); err != nil {
@@ -72,19 +84,27 @@ func (sessions *AppSessions) ChangeAppVolume(cfg *config.Config, volume []float3
 }
 
 func (sessions *AppSessions) ChangeMasterVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
-	masterSlider, masterOk := cfg.MasterSliderMapping["master"]
+	masterSlider, masterOk := cfg.MasterSlidderMapping["master"]
+	masterSlider--
 
 	for name, info := range sessions.Masters {
-		val, Ok := cfg.MasterSliderMapping[name]
-
+		pin, Ok := cfg.MasterSlidderMapping[name]
+		// Minus 1
+		pin--
 		if masterOk {
-			val = masterSlider
+			pin = masterSlider
+		}
+
+		// Get volume
+		vol, err := device.GetAt(volume, pin)
+		if err != nil {
+			continue
 		}
 
 		if Ok || masterOk {
 			request := proto.SetSinkVolume{
 				SinkIndex:      info.SinkIndex,
-				ChannelVolumes: []uint32{uint32(maxVolume * volume[val])}, // volume
+				ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
 			}
 
 			if err := c.client.Request(&request, nil); err != nil {

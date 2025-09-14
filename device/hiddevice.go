@@ -66,7 +66,7 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 			}
 		}
 
-		values := parseDeviceData(clean, cfg.SliderInvert)
+		values := parseDeviceData(clean, cfg.SlidderInvert)
 		if values.err != nil {
 			var t *hid.Device
 			var err error
@@ -82,6 +82,6 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 
 		out <- values
 
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 }

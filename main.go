@@ -63,9 +63,6 @@ func main() {
 		go device.ReadDeviceData(d, cfg, dataChan)
 	}
 
-	// Get Count form config to make sure that their is enough slider and button valuse from the hardware
-	sliderCount, buttonCount := findNumberChannelCount(cfg)
-
 	for {
 		// Read from channel whenever new data arrives
 		deviceData = <-dataChan
@@ -76,8 +73,7 @@ func main() {
 		// Get mpris sessions
 		players, err1 := mpris.ConnectToApps(sessions)
 
-		if err != nil || err1 != nil || len(deviceData.Volume) < sliderCount || len(deviceData.Button) < buttonCount {
-			fmt.Println("wrong number of sliders: ")
+		if err != nil || err1 != nil {
 			continue
 		}
 
@@ -87,26 +83,18 @@ func main() {
 	}
 }
 
-func findNumberChannelCount(cfg *config.Config) (int, int) {
+func findNumberChannelCount(cfg *config.Config) int {
 	// Count Number of Sliders in Config
 	totalSliderCount := 0
-	for _, val := range cfg.AppSliderMapping {
+	for val := range len(cfg.AppSlidderMapping) {
 		if val > totalSliderCount {
 			totalSliderCount = val
 		}
 	}
-	for _, val := range cfg.MasterSliderMapping {
+	for val := range len(cfg.MasterSlidderMapping) {
 		if val > totalSliderCount {
 			totalSliderCount = val
 		}
 	}
-
-	// Count Number of Buttons in Config
-	totalButtonCount := 0
-	for _, val := range cfg.AppSliderMapping {
-		if val > totalSliderCount {
-			totalSliderCount = val
-		}
-	}
-	return totalSliderCount + 1, totalButtonCount + 1
+	return totalSliderCount
 }

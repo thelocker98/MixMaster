@@ -2,6 +2,7 @@ package device
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 )
 
@@ -51,4 +52,12 @@ func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 		Button: buttons,
 		err:    nil,
 	}
+}
+
+func GetAt[T any](array []T, index int) (T, error) {
+	var zero T
+	if index < 0 || index >= len(array) {
+		return zero, fmt.Errorf("index %d out of range [0,%d)", index, len(array))
+	}
+	return array[index], nil
 }

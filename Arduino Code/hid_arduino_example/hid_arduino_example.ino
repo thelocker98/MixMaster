@@ -8,13 +8,13 @@ String jsonData;
 
 
 // --- Analog Sliders ---
-const int NUM_SLIDERS = 1;
-const int analogInputs[NUM_SLIDERS] = { 10 };
+const int NUM_SLIDERS = 2;
+const int analogInputs[NUM_SLIDERS] = { 10, 18 };
 int analogSliderValues[NUM_SLIDERS];
 
 // --- Buttons ---
-const int NUM_BUTTONS = 1;
-const int buttonPins[NUM_BUTTONS] = { 2 };
+const int NUM_BUTTONS = 3;
+const int buttonPins[NUM_BUTTONS] = { 2, 3, 4 };
 int buttonStates[NUM_BUTTONS];
 bool buttonTriggered[NUM_BUTTONS];
 
@@ -40,7 +40,6 @@ void loop() {
   // -------- Receive packet from host --------
   int bytesAvailable = RawHID.available();
   uint8_t rxBuffer[PACKET_SIZE];
-
 
   if (bytesAvailable > 0) {
     // loop through all the bits in the buffer
@@ -119,5 +118,6 @@ String createJsonPacket() {
     }
   }
   data += "]}";
+  Serial.println(data);
   return data;
 }

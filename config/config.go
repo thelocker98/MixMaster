@@ -1,23 +1,31 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	AppSliderMapping    map[string]int `yaml:"app-sliders"`
-	MasterSliderMapping map[string]int `yaml:"master-sliders"`
-	Buttons             map[string]int `yaml:"buttons"`
+type AppData struct {
+	AppName   string `yaml:"appname"`
+	Slidder   int    `yaml:"slidder"`
+	Back      int    `yaml:"back"`
+	Next      int    `yaml:"next"`
+	PlayPause int    `yaml:"playpause"`
+}
 
-	SliderInvert   bool   `yaml:"invert_sliders"`
-	COMPort        string `yaml:"com_port"`
-	BaudRate       int    `yaml:"baud_rate"`
-	NoiseReduction string `yaml:"noise_reduction"`
-	VID            uint16 `yaml:"usb_vid"`
-	PID            uint16 `yaml:"usb_pid"`
+type Config struct {
+	AppSlidderMapping    map[string]AppData `yaml:"app-slidders"`
+	MasterSlidderMapping map[string]int     `yaml:"master-slidders,omitempty"`
+
+	SlidderInvert  bool   `yaml:"invert_slidders,omitempty"`
+	COMPort        string `yaml:"com_port,omitempty"`
+	BaudRate       int    `yaml:"baud_rate,omitempty"`
+	NoiseReduction string `yaml:"noise_reduction,omitempty"`
+	VID            uint16 `yaml:"usb_vid,omitempty"`
+	PID            uint16 `yaml:"usb_pid,omitempty"`
 }
 
 func ParseConfig(path string) *Config {
@@ -30,5 +38,15 @@ func ParseConfig(path string) *Config {
 	if err := yaml.Unmarshal(yamlData, &cfg); err != nil {
 		log.Fatalf("error parsing yaml: %v", err)
 	}
+
+	for name, data := range cfg.AppSlidderMapping {
+		data.Next--
+		data.Back--
+		data.PlayPause--
+		data.Slidder--
+		cfg.AppSlidderMapping[name] = data
+	}
+
+	fmt.Println(cfg)
 	return &cfg
 }

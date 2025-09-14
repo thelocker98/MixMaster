@@ -35,7 +35,7 @@ func ReadDeviceData(s *serial.Port, cfg *config.Config, out chan<- *DeviceData) 
 		}
 
 		// parse data from the device
-		values := parseDeviceData(data, cfg.SliderInvert)
+		values := parseDeviceData(data, cfg.SlidderInvert)
 
 		out <- values
 	}

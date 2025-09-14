@@ -49,12 +49,31 @@ func (conn *DBusConnection) ConnectToApps(sessions *pulse.AppSessions) (*Players
 }
 
 func (p Players) PausePlay(cfg *config.Config, deviceData *device.DeviceData) {
-	for name, val := range p {
-		if _, ok := cfg.Buttons[name]; !ok {
-			continue
-		}
-		if deviceData.Button[cfg.Buttons[name]] {
-			val.PlayPause()
+	for appName, val := range p {
+		for name, slidder := range cfg.AppSlidderMapping {
+			// Play and Pause
+			var pin = cfg.AppSlidderMapping[name].PlayPause
+			if slidder.AppName == appName && pin != -1 {
+				if state, _ := device.GetAt(deviceData.Button, pin); state {
+					val.PlayPause()
+				}
+			}
+
+			// Next Track
+			pin = cfg.AppSlidderMapping[name].Next
+			if slidder.AppName == appName && pin != -1 {
+				if state, _ := device.GetAt(deviceData.Button, pin); state {
+					val.Next()
+				}
+			}
+
+			// Previous Track
+			pin = cfg.AppSlidderMapping[name].Back
+			if slidder.AppName == appName && pin != -1 {
+				if state, _ := device.GetAt(deviceData.Button, pin); state {
+					val.Previous()
+				}
+			}
 		}
 	}
 }
