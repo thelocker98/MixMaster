@@ -1,30 +1,22 @@
-package main
+package mixmaster
 
 import (
-	"flag"
 	"fmt"
 	"log"
 
-	"gitea.locker98.com/locker98/Mixmaster/audio"
-	"gitea.locker98.com/locker98/Mixmaster/config"
-	"gitea.locker98.com/locker98/Mixmaster/device"
-	"gitea.locker98.com/locker98/Mixmaster/pulse"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/audio"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/device"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/pulse"
 )
 
 var deviceData *device.DeviceData
 
-var (
-	configFile   = flag.String("config", "config.yaml", "config.yaml file to custom Mix Master")
-	showSessions = flag.Bool("show-sessions", false, "Enable debug mode")
-)
+func NewMixMaster(configFile *string) {
 
-// Hash of Volume and Button slice to detect change from device
-var volumeHash string
-var buttonHash string
-
-func main() {
-	// Parse Flags
-	flag.Parse()
+	// Hash of Volume and Button slice to detect change from device
+	var volumeHash string
+	var buttonHash string
 
 	// Load Config
 	cfg := config.ParseConfig(*configFile)
@@ -38,12 +30,6 @@ func main() {
 
 	// Set up mpris
 	mpris, err := audio.MprisInitialize()
-
-	// Check if the show-sessions flag is active
-	if *showSessions {
-		fmt.Println("Sessions")
-		return
-	}
 
 	// Create channel to receive data
 	dataChan := make(chan *device.DeviceData)

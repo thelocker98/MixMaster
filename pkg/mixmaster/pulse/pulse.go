@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"gitea.locker98.com/locker98/Mixmaster/config"
-	"gitea.locker98.com/locker98/Mixmaster/device"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/device"
 	"github.com/jfreymuth/pulse/proto"
 )
 

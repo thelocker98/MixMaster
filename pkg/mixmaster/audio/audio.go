@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"gitea.locker98.com/locker98/Mixmaster/config"
-	"gitea.locker98.com/locker98/Mixmaster/device"
-	"gitea.locker98.com/locker98/Mixmaster/pulse"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/device"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/pulse"
 	"github.com/Endg4meZer0/go-mpris"
 	"github.com/godbus/dbus/v5"
 	"github.com/sahilm/fuzzy"

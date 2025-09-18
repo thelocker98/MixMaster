@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitea.locker98.com/locker98/Mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
 	hid "github.com/sstallion/go-hid"
 )
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"gitea.locker98.com/locker98/Mixmaster/config"
+	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
 	"github.com/tarm/serial"
 )
 
