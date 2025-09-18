@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os/exec"
 
+	"fyne.io/systray"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/icon"
-	"github.com/getlantern/systray"
 )
 
 var (
@@ -32,8 +33,6 @@ func onReady() {
 	systray.SetTitle("MixMaster")
 	config := systray.AddMenuItem("Config", "Configure Settings")
 	systray.AddSeparator()
-	check := systray.AddMenuItemCheckbox("Check", "Please Check Me", false)
-	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "Stop deej and quit")
 
 	go mixmaster.NewMixMaster(configFile)
@@ -46,18 +45,19 @@ func onReady() {
 		case <-config.ClickedCh:
 			fmt.Println("Config Clicked")
 
-		case <-check.ClickedCh:
-			if check.Checked() {
-				check.Uncheck()
-				fmt.Println("Unchecked")
-			} else {
-				check.Check()
-				fmt.Println("Checked")
+			command := exec.Command("gedit", *configFile) // try gedit
+			if err := command.Run(); err != nil {
+				fmt.Println("Errors: ", err)
+				command := exec.Command("kate", *configFile) // try kate instead
+				if err := command.Run(); err != nil {
+					fmt.Println("Errors: ", err)
+				}
 			}
+
 		}
 	}
 }
 
 func onExit() {
-	fmt.Println("Exit")
+	fmt.Println("Exited")
 }

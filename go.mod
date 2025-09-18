@@ -3,6 +3,7 @@ module gitea.locker98.com/locker98/Mixmaster
 go 1.25.1
 
 require (
+	fyne.io/systray v1.11.0
 	github.com/Endg4meZer0/go-mpris v1.0.5
 	github.com/getlantern/systray v1.2.2
 	github.com/godbus/dbus/v5 v5.1.0
@@ -23,5 +24,5 @@ require (
 	github.com/getlantern/ops v0.0.0-20190325191751-d70cb0d6f85f // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
 )

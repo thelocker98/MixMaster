@@ -5,7 +5,7 @@ app-slidders:
   unmapped:
     slidder: 2
   vivaldi-bin:
-    slidder: 3
+    slidder: 1
   brave:
     slidder: 1
 
