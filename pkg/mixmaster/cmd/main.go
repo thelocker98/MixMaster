@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	configFile   = flag.String("config", "config.yaml", "config.yaml file to custom Mix Master")
+	configFile   = flag.String("config", "../../../config.yaml", "config.yaml file to custom Mix Master")
 	showSessions = flag.Bool("show-sessions", false, "Enable debug mode")
 )
 
