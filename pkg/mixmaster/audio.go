@@ -1,13 +1,10 @@
-package audio
+package mixmaster
 
 import (
 	"errors"
 	"fmt"
 	"strings"
 
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/device"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/pulse"
 	"github.com/Endg4meZer0/go-mpris"
 	"github.com/godbus/dbus/v5"
 	"github.com/sahilm/fuzzy"
@@ -30,7 +27,7 @@ func MprisInitialize() (*DBusConnection, error) {
 	return &DBusConnection{Conn: conn}, nil
 }
 
-func (conn *DBusConnection) ConnectToApps(sessions *pulse.AppSessions) (*Players, error) {
+func (conn *DBusConnection) ConnectToApps(sessions *AppSessions) (*Players, error) {
 	audioPlayers := make(Players)
 
 	names, err := mpris.List(conn.Conn)
@@ -48,13 +45,13 @@ func (conn *DBusConnection) ConnectToApps(sessions *pulse.AppSessions) (*Players
 	return &audioPlayers, nil
 }
 
-func (p Players) PausePlay(cfg *config.Config, deviceData *device.DeviceData) {
+func (p Players) PausePlay(cfg *Config, deviceData *DeviceData) {
 	for appName, val := range p {
 		for name, slidder := range cfg.AppSlidderMapping {
 			// Play and Pause
 			var pin = cfg.AppSlidderMapping[name].PlayPause
 			if slidder.AppName == appName && pin != -1 {
-				if state, _ := device.GetAt(deviceData.Button, pin); state {
+				if state, _ := GetAt(deviceData.Button, pin); state {
 					val.PlayPause()
 				}
 			}
@@ -62,7 +59,7 @@ func (p Players) PausePlay(cfg *config.Config, deviceData *device.DeviceData) {
 			// Next Track
 			pin = cfg.AppSlidderMapping[name].Next
 			if slidder.AppName == appName && pin != -1 {
-				if state, _ := device.GetAt(deviceData.Button, pin); state {
+				if state, _ := GetAt(deviceData.Button, pin); state {
 					val.Next()
 				}
 			}
@@ -70,7 +67,7 @@ func (p Players) PausePlay(cfg *config.Config, deviceData *device.DeviceData) {
 			// Previous Track
 			pin = cfg.AppSlidderMapping[name].Back
 			if slidder.AppName == appName && pin != -1 {
-				if state, _ := device.GetAt(deviceData.Button, pin); state {
+				if state, _ := GetAt(deviceData.Button, pin); state {
 					val.Previous()
 				}
 			}

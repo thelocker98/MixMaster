@@ -3,14 +3,9 @@ package mixmaster
 import (
 	"fmt"
 	"log"
-
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/audio"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/device"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/pulse"
 )
 
-var deviceData *device.DeviceData
+var deviceData *DeviceData
 
 func NewMixMaster(configFile *string) {
 
@@ -19,38 +14,38 @@ func NewMixMaster(configFile *string) {
 	var buttonHash string
 
 	// Load Config
-	cfg := config.ParseConfig(*configFile)
+	cfg := ParseConfig(*configFile)
 
 	// Create Pulse Client
-	client, err := pulse.CreatePulseClient("MixMaster")
+	client, err := CreatePulseClient("MixMaster")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	// Set up mpris
-	mpris, err := audio.MprisInitialize()
+	mpris, err := MprisInitialize()
 
 	// Create channel to receive data
-	dataChan := make(chan *device.DeviceData)
+	dataChan := make(chan *DeviceData)
 
 	// Set up Device
 	if cfg.PID != 0 && cfg.VID != 0 && cfg.COMPort == "" && cfg.BaudRate == 0 {
 		fmt.Println("HID Mode")
-		d, err := device.InitializeConnectionHID(cfg)
+		d, err := InitializeConnectionHID(cfg)
 		if err != nil {
 			log.Fatalf("Error Initializing Device: %s", err)
 		}
 		// Start Background program
-		go device.ReadDeviceDataHID(d, cfg, dataChan)
+		go ReadDeviceDataHID(d, cfg, dataChan)
 	} else {
 		fmt.Println("Serial Mode")
-		d, err := device.InitializeConnection(cfg)
+		d, err := InitializeConnection(cfg)
 		if err != nil {
 			log.Fatalf("Error Initializing Device: %s", err)
 		}
 		// Start Background program
-		go device.ReadDeviceData(d, cfg, dataChan)
+		go ReadDeviceData(d, cfg, dataChan)
 	}
 
 	for {
@@ -67,14 +62,14 @@ func NewMixMaster(configFile *string) {
 			continue
 		}
 
-		if hash, _ := device.HashSlice(deviceData.Volume); hash != volumeHash {
-			volumeHash, _ = device.HashSlice(deviceData.Volume)
+		if hash, _ := HashSlice(deviceData.Volume); hash != volumeHash {
+			volumeHash, _ = HashSlice(deviceData.Volume)
 			sessions.ChangeAppVolume(cfg, deviceData.Volume, client)
 			sessions.ChangeMasterVolume(cfg, deviceData.Volume, client)
 		}
 
-		if hash, _ := device.HashSlice(deviceData.Button); hash != buttonHash {
-			buttonHash, _ = device.HashSlice(deviceData.Button)
+		if hash, _ := HashSlice(deviceData.Button); hash != buttonHash {
+			buttonHash, _ = HashSlice(deviceData.Button)
 			players.PausePlay(cfg, deviceData)
 		}
 	}

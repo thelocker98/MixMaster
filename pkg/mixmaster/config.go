@@ -1,4 +1,4 @@
-package config
+package mixmaster
 
 import (
 	"fmt"

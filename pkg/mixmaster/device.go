@@ -1,4 +1,4 @@
-package device
+package mixmaster
 
 import (
 	"crypto/sha256"
@@ -6,14 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+
+	hid "github.com/sstallion/go-hid"
 )
 
 type DeviceData struct {
+	Id     int64
 	Volume []float32
 	Button []bool
 	err    error
 }
 type arduinoMsg struct {
+	Id       int64 `json:"id"`
 	Slidders []int `json:"s"`
 	Buttons  []int `json:"b"`
 }
@@ -29,6 +33,7 @@ func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 	err := json.Unmarshal(buf, &msg)
 	if err != nil {
 		return &DeviceData{
+			Id:     0,
 			Volume: nil,
 			Button: nil,
 			err:    err,
@@ -50,6 +55,7 @@ func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 	}
 
 	return &DeviceData{
+		Id:     msg.Id,
 		Volume: volumes,
 		Button: buttons,
 		err:    nil,
@@ -71,4 +77,20 @@ func HashSlice[T any](slice []T) (string, error) {
 	}
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:]), nil
+}
+
+func ListDevices() []string {
+	// Initialize the hid package.
+	if err := hid.Init(); err != nil {
+	}
+
+	var paths []string
+
+	hid.Enumerate(hid.VendorIDAny, hid.ProductIDAny, func(info *hid.DeviceInfo) error {
+		fmt.Printf("%s:\n", info.Path)
+		paths = append(paths, info.Path)
+		return nil
+	})
+
+	return paths
 }

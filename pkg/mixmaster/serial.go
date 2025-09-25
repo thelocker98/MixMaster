@@ -1,15 +1,14 @@
-package device
+package mixmaster
 
 import (
 	"bufio"
 	"errors"
 	"time"
 
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
 	"github.com/tarm/serial"
 )
 
-func InitializeConnection(cfg *config.Config) (*serial.Port, error) {
+func InitializeConnection(cfg *Config) (*serial.Port, error) {
 	// Configure the serial port
 	c := &serial.Config{
 		Name:        cfg.COMPort,  // your serial port
@@ -26,7 +25,7 @@ func InitializeConnection(cfg *config.Config) (*serial.Port, error) {
 	return s, err
 }
 
-func ReadDeviceData(s *serial.Port, cfg *config.Config, out chan<- *DeviceData) {
+func ReadDeviceData(s *serial.Port, cfg *Config, out chan<- *DeviceData) {
 	r := bufio.NewReader(s)
 
 	for {

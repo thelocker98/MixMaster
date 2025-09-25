@@ -21,6 +21,7 @@ func main() {
 
 	if *showSessions {
 		fmt.Println("Sessions")
+		fmt.Println(mixmaster.ListDevices())
 		return
 	}
 

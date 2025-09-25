@@ -1,15 +1,14 @@
-package device
+package mixmaster
 
 import (
 	"errors"
 	"fmt"
 	"time"
 
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
 	hid "github.com/sstallion/go-hid"
 )
 
-func InitializeConnectionHID(cfg *config.Config) (*hid.Device, error) {
+func InitializeConnectionHID(cfg *Config) (*hid.Device, error) {
 	// Initialize the hid package.
 	if err := hid.Init(); err != nil {
 		return nil, err
@@ -23,7 +22,7 @@ func InitializeConnectionHID(cfg *config.Config) (*hid.Device, error) {
 	return d, nil
 }
 
-func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData) {
+func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
 	// Buffers for read/write
 	in := make([]byte, 64)
 	var clean []byte
@@ -63,6 +62,8 @@ func ReadDeviceDataHID(d *hid.Device, cfg *config.Config, out chan<- *DeviceData
 		}
 
 		values := parseDeviceData(clean, cfg.SlidderInvert)
+		fmt.Println(values)
+
 		if values.err != nil {
 			var err error
 			err = errors.New("Trying to Initialize")

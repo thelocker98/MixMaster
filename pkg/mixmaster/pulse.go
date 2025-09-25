@@ -1,11 +1,9 @@
-package pulse
+package mixmaster
 
 import (
 	"errors"
 	"fmt"
 
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/config"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/device"
 	"github.com/jfreymuth/pulse/proto"
 )
 
@@ -42,14 +40,14 @@ func (c *pulseAudio) GetAppVolume(appName string) (*float32, error) {
 	return nil, fmt.Errorf(": %s", appName)
 }
 
-func (sessions *AppSessions) ChangeAppVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
+func (sessions *AppSessions) ChangeAppVolume(cfg *Config, volume []float32, c *pulseAudio) error {
 	unmappedSlider, unmappedOk := cfg.AppSlidderMapping["unmapped"]
 
 	for name, info := range sessions.Apps {
 		val, Ok := cfg.AppSlidderMapping[name]
 
 		if Ok && val.Slidder != -1 {
-			vol, err := device.GetAt(volume, val.Slidder)
+			vol, err := GetAt(volume, val.Slidder)
 
 			if err != nil {
 				continue
@@ -63,7 +61,7 @@ func (sessions *AppSessions) ChangeAppVolume(cfg *config.Config, volume []float3
 				continue
 			}
 		} else if unmappedOk {
-			vol, err := device.GetAt(volume, unmappedSlider.Slidder)
+			vol, err := GetAt(volume, unmappedSlider.Slidder)
 
 			if err != nil {
 				continue
@@ -83,7 +81,7 @@ func (sessions *AppSessions) ChangeAppVolume(cfg *config.Config, volume []float3
 	return nil
 }
 
-func (sessions *AppSessions) ChangeMasterVolume(cfg *config.Config, volume []float32, c *pulseAudio) error {
+func (sessions *AppSessions) ChangeMasterVolume(cfg *Config, volume []float32, c *pulseAudio) error {
 	masterSlider, masterOk := cfg.MasterSlidderMapping["master"]
 	masterSlider--
 
@@ -96,7 +94,7 @@ func (sessions *AppSessions) ChangeMasterVolume(cfg *config.Config, volume []flo
 		}
 
 		// Get volume
-		vol, err := device.GetAt(volume, pin)
+		vol, err := GetAt(volume, pin)
 		if err != nil {
 			continue
 		}
