@@ -1,14 +1,22 @@
 package mixmaster
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
+	"time"
 
 	hid "github.com/sstallion/go-hid"
+	"github.com/tarm/serial"
 )
+
+type Device struct {
+	HidDev    *string
+	SerialDev *serial.Config
+}
 
 type DeviceData struct {
 	Id     int64
@@ -26,6 +34,7 @@ func roundFloat32(f float32, decimals int) float32 {
 	pow := math.Pow10(decimals)
 	return float32(math.Round(float64(f)*pow) / pow)
 }
+func strPtr(s string) *string { return &s }
 
 func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 
@@ -62,7 +71,7 @@ func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 	}
 }
 
-func GetAt[T any](array []T, index int) (T, error) {
+func GetArrayAt[T any](array []T, index int) (T, error) {
 	var zero T
 	if index < 0 || index >= len(array) {
 		return zero, fmt.Errorf("index %d out of range [0,%d)", index, len(array))
@@ -93,4 +102,104 @@ func ListDevices() []string {
 	})
 
 	return paths
+}
+
+func GetDevice(id int64) (*Device, error) {
+	if err := hid.Init(); err != nil {
+	}
+
+	// hid.Enumerate(hid.VendorIDAny, hid.ProductIDAny, func(info *hid.DeviceInfo) error {
+	// 	fmt.Printf("%s:\n", info.Path)
+	// 	d, _ := hid.OpenPath(info.Path)
+
+	// 	d.Close()
+	// 	return nil
+	// })
+
+	// return nil, errors.New("No Device Found")
+	return &Device{HidDev: strPtr("/dev/hidraw5"), SerialDev: nil}, nil
+}
+
+func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
+	// Buffers for read/write
+	in := make([]byte, 64)
+	var clean []byte
+
+	for {
+		buf := make([]byte, 64) // automatically filled with zeros
+		for i := range buf {
+			buf[i] = 0
+		}
+		buf[0] = 5
+		if _, err := d.Write(buf); err != nil {
+			fmt.Println("Write error:")
+		}
+
+		// Try to read a packet
+		clean = []byte{}
+		deadline := time.Now().Add(1000 * time.Millisecond)
+		for time.Now().Before(deadline) {
+			// Read requested state.
+			if _, err := d.Read(in); err != nil {
+				break
+			}
+			// Remove trailing zeros
+			for _, b := range in {
+				if b == 0 {
+					break
+				}
+				clean = append(clean, b)
+			}
+			// Convert to string
+			if clean[0] != '{' {
+				clean = []byte{}
+				break
+			} else if clean[len(clean)-1] == '}' {
+				break
+			}
+		}
+
+		values := parseDeviceData(clean, cfg.SlidderInvert)
+		fmt.Println(values)
+
+		if values.err != nil {
+			// var err error
+			// err = errors.New("Trying to Initialize")
+			// for err != nil {
+			// 	fmt.Println("searching for new device")
+			// 	time.Sleep(1 * time.Second)
+			// 	d, err = InitializeConnectionHID(cfg)
+			// }
+
+			continue
+		}
+
+		out <- values
+
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func ReadDeviceDataSerial(s *serial.Port, cfg *Config, out chan<- *DeviceData) {
+	r := bufio.NewReader(s)
+
+	for {
+		data, errReading := r.ReadBytes('\n')
+		if errReading != nil {
+			// var err error
+			// err = errors.New("Trying to Initialize")
+
+			// for err != nil {
+			// 	s, err = InitializeConnection(cfg)
+			// }
+			// r = bufio.NewReader(s)
+
+			continue
+		}
+
+		// parse data from the device
+		values := parseDeviceData(data, cfg.SlidderInvert)
+
+		out <- values
+	}
 }

@@ -4,10 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"os/exec"
+	"time"
 
 	"fyne.io/systray"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/icon"
+	"github.com/tarm/serial"
 )
 
 var (
@@ -36,7 +38,17 @@ func onReady() {
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "Stop deej and quit")
 
-	go mixmaster.NewMixMaster(configFile)
+	cfg1 := mixmaster.ParseConfig("../../../myconfig.yaml") //*configFile)
+	dev, _ := mixmaster.GetDevice(6455666)
+	go mixmaster.NewMixMaster(cfg1, dev)
+
+	cfg2 := mixmaster.ParseConfig("../../../config.yaml")
+	c := &serial.Config{
+		Name:        cfg2.COMPort,
+		Baud:        cfg2.BaudRate,
+		ReadTimeout: time.Second * 5,
+	}
+	go mixmaster.NewMixMaster(cfg2, &mixmaster.Device{HidDev: nil, SerialDev: c})
 
 	for {
 		select {

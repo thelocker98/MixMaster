@@ -1,51 +1,55 @@
 package mixmaster
 
 import (
-	"fmt"
-	"log"
+	"errors"
+
+	"github.com/sstallion/go-hid"
+	"github.com/tarm/serial"
 )
 
-var deviceData *DeviceData
-
-func NewMixMaster(configFile *string) {
-
+func NewMixMaster(cfg *Config, dev *Device) error {
+	// Define Data Channel
+	var deviceData *DeviceData
 	// Hash of Volume and Button slice to detect change from device
 	var volumeHash string
 	var buttonHash string
 
-	// Load Config
-	cfg := ParseConfig(*configFile)
-
 	// Create Pulse Client
 	client, err := CreatePulseClient("MixMaster")
 	if err != nil {
-		fmt.Println(err)
-		return
+		return errors.New("could not creating Pulse client")
 	}
 
 	// Set up mpris
 	mpris, err := MprisInitialize()
+	if err != nil {
+		return errors.New("could not creating mpirs client")
+	}
 
 	// Create channel to receive data
 	dataChan := make(chan *DeviceData)
 
-	// Set up Device
-	if cfg.PID != 0 && cfg.VID != 0 && cfg.COMPort == "" && cfg.BaudRate == 0 {
-		fmt.Println("HID Mode")
-		d, err := InitializeConnectionHID(cfg)
+	// Check if hid device is specified
+	if dev.HidDev != nil {
+		d, err := hid.OpenPath(*dev.HidDev)
 		if err != nil {
-			log.Fatalf("Error Initializing Device: %s", err)
+			return errors.New("could not opening HID device")
 		}
-		// Start Background program
+
 		go ReadDeviceDataHID(d, cfg, dataChan)
-	} else {
-		fmt.Println("Serial Mode")
-		d, err := InitializeConnection(cfg)
+
+		//Check if serial device is specified
+	} else if dev.SerialDev != nil {
+		s, err := serial.OpenPort(dev.SerialDev)
 		if err != nil {
-			log.Fatalf("Error Initializing Device: %s", err)
+			return errors.New("could not opening Serial device")
 		}
-		// Start Background program
-		go ReadDeviceData(d, cfg, dataChan)
+
+		go ReadDeviceDataSerial(s, cfg, dataChan)
+
+		// end if no device is found
+	} else {
+		return errors.New("no device found")
 	}
 
 	for {
@@ -54,20 +58,28 @@ func NewMixMaster(configFile *string) {
 
 		// Get pulse audio sessions
 		sessions, err := client.GetAudioSessions()
-
-		// Get mpris sessions
-		players, err1 := mpris.ConnectToApps(sessions)
-
-		if err != nil || err1 != nil {
+		if err != nil {
+			// could not get pulse audio sessions
 			continue
 		}
 
+		// Get mpris sessions
+		players, err := mpris.ConnectToApps(sessions)
+		if err != nil {
+			// could not get app media controls
+			continue
+		}
+
+		// Check if the hash of the current volume match the hash of the last volume.
+		// If the hash matchs do not change volume
 		if hash, _ := HashSlice(deviceData.Volume); hash != volumeHash {
 			volumeHash, _ = HashSlice(deviceData.Volume)
 			sessions.ChangeAppVolume(cfg, deviceData.Volume, client)
 			sessions.ChangeMasterVolume(cfg, deviceData.Volume, client)
 		}
 
+		// Check if the hash of the current media state match the hash of the last media state.
+		// If the hash matchs do not change media state
 		if hash, _ := HashSlice(deviceData.Button); hash != buttonHash {
 			buttonHash, _ = HashSlice(deviceData.Button)
 			players.PausePlay(cfg, deviceData)

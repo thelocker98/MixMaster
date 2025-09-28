@@ -2,12 +2,10 @@
 # you can use 'unmapped' to control all apps that aren't bound to any slider (this ignores master, system, mic and device-targeting sessions)
 # important: slider indexes start at 0, regardless of which analog pins you're using!
 app-slidders:
-  unmapped:
-    slidder: 2
+  # unmapped:
+  #   slidder: 3
   vivaldi-bin:
-    slidder: 1
-  brave:
-    slidder: 1
+    slidder: 2
 
 master-slidders:
   master: 4

@@ -47,7 +47,7 @@ func (sessions *AppSessions) ChangeAppVolume(cfg *Config, volume []float32, c *p
 		val, Ok := cfg.AppSlidderMapping[name]
 
 		if Ok && val.Slidder != -1 {
-			vol, err := GetAt(volume, val.Slidder)
+			vol, err := GetArrayAt(volume, val.Slidder)
 
 			if err != nil {
 				continue
@@ -61,7 +61,7 @@ func (sessions *AppSessions) ChangeAppVolume(cfg *Config, volume []float32, c *p
 				continue
 			}
 		} else if unmappedOk {
-			vol, err := GetAt(volume, unmappedSlider.Slidder)
+			vol, err := GetArrayAt(volume, unmappedSlider.Slidder)
 
 			if err != nil {
 				continue
@@ -94,7 +94,7 @@ func (sessions *AppSessions) ChangeMasterVolume(cfg *Config, volume []float32, c
 		}
 
 		// Get volume
-		vol, err := GetAt(volume, pin)
+		vol, err := GetArrayAt(volume, pin)
 		if err != nil {
 			continue
 		}

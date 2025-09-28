@@ -51,7 +51,7 @@ func (p Players) PausePlay(cfg *Config, deviceData *DeviceData) {
 			// Play and Pause
 			var pin = cfg.AppSlidderMapping[name].PlayPause
 			if slidder.AppName == appName && pin != -1 {
-				if state, _ := GetAt(deviceData.Button, pin); state {
+				if state, _ := GetArrayAt(deviceData.Button, pin); state {
 					val.PlayPause()
 				}
 			}
@@ -59,7 +59,7 @@ func (p Players) PausePlay(cfg *Config, deviceData *DeviceData) {
 			// Next Track
 			pin = cfg.AppSlidderMapping[name].Next
 			if slidder.AppName == appName && pin != -1 {
-				if state, _ := GetAt(deviceData.Button, pin); state {
+				if state, _ := GetArrayAt(deviceData.Button, pin); state {
 					val.Next()
 				}
 			}
@@ -67,7 +67,7 @@ func (p Players) PausePlay(cfg *Config, deviceData *DeviceData) {
 			// Previous Track
 			pin = cfg.AppSlidderMapping[name].Back
 			if slidder.AppName == appName && pin != -1 {
-				if state, _ := GetAt(deviceData.Button, pin); state {
+				if state, _ := GetArrayAt(deviceData.Button, pin); state {
 					val.Previous()
 				}
 			}
