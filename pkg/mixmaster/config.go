@@ -1,7 +1,6 @@
 package mixmaster
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -9,11 +8,11 @@ import (
 )
 
 type AppData struct {
-	AppName   string `yaml:"appname"`
-	Slidder   int    `yaml:"slidder"`
-	Back      int    `yaml:"back"`
-	Next      int    `yaml:"next"`
-	PlayPause int    `yaml:"playpause"`
+	MpirsAppName string `yaml:"appname"`
+	Slidder      int    `yaml:"slidder"`
+	Back         int    `yaml:"back"`
+	Next         int    `yaml:"next"`
+	PlayPause    int    `yaml:"playpause"`
 }
 
 type Config struct {
@@ -46,7 +45,10 @@ func ParseConfig(path string) *Config {
 		data.Slidder--
 		cfg.AppSlidderMapping[name] = data
 	}
+	for name, data := range cfg.MasterSlidderMapping {
+		data--
+		cfg.MasterSlidderMapping[name] = data
+	}
 
-	fmt.Println(cfg)
 	return &cfg
 }

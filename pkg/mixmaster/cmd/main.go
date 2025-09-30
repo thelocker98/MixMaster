@@ -4,12 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os/exec"
-	"time"
 
 	"fyne.io/systray"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/icon"
-	"github.com/tarm/serial"
 )
 
 var (
@@ -32,25 +30,61 @@ func main() {
 }
 
 func onReady() {
+	var dat *mixmaster.ParsedAudioData
+	// Create Pulse Client
+	pulseClient, err := mixmaster.CreatePulseClient("MixMaster")
+	if err != nil {
+		//return errors.New("could not creating Pulse client")
+		return
+	}
+
+	// Set up mpris
+	mprisClient, err := mixmaster.MprisInitialize()
+	if err != nil {
+		//return errors.New("could not creating mpirs client")
+		return
+	}
+
+	// Systray setup
 	systray.SetTemplateIcon(icon.Data, icon.Data)
 	systray.SetTitle("MixMaster")
 	config := systray.AddMenuItem("Config", "Configure Settings")
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "Stop deej and quit")
 
+	// USB HID audio Device
 	cfg1 := mixmaster.ParseConfig("../../../myconfig.yaml") //*configFile)
 	dev, _ := mixmaster.GetDevice(6455666)
-	go mixmaster.NewMixMaster(cfg1, dev)
-
-	cfg2 := mixmaster.ParseConfig("../../../config.yaml")
-	c := &serial.Config{
-		Name:        cfg2.COMPort,
-		Baud:        cfg2.BaudRate,
-		ReadTimeout: time.Second * 5,
-	}
-	go mixmaster.NewMixMaster(cfg2, &mixmaster.Device{HidDev: nil, SerialDev: c})
+	mixmaster1out := make(chan *mixmaster.ParsedAudioData)
+	go mixmaster.NewMixMaster(cfg1, dev, mixmaster1out)
 
 	for {
+		dat = <-mixmaster1out
+
+		//fmt.Print("mixMaster1 data: ")
+		//fmt.Println(dat)
+
+		// Get pulse audio sessions
+		pulseSessions, err := pulseClient.GetPulseSessions()
+		if err != nil {
+			// could not get pulse audio sessions
+			return
+		}
+
+		// Get mpris sessions
+		mpirsSessions, err := mprisClient.ConnectToApps(pulseSessions)
+		if err != nil {
+			// could not get app media controls
+			return
+		}
+
+		pulseSessions.ChangeAppVolume(dat.PulseApps, pulseClient)
+		pulseSessions.ChangeMasterVolume(dat.MasterOuputs, pulseClient)
+		if false {
+			fmt.Println(mpirsSessions)
+		}
+		//mpirsSessions.MediaControlApps(dat.MpirsApps, mpirsSessions)
+
 		select {
 		case <-quit.ClickedCh:
 			systray.Quit()
@@ -66,7 +100,8 @@ func onReady() {
 					fmt.Println("Errors: ", err)
 				}
 			}
-
+		default:
+			// no option selected
 		}
 	}
 }

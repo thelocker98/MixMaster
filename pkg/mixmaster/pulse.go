@@ -7,113 +7,155 @@ import (
 	"github.com/jfreymuth/pulse/proto"
 )
 
-type pulseAudio struct {
+type pulseClient struct {
 	client *proto.Client
 }
 
-type AppSessions struct {
+type PulseSessions struct {
 	Masters  map[string]*proto.GetSinkInfoReply
-	Apps     map[string]*proto.GetSinkInputInfoReply
+	Apps     map[string][]*proto.GetSinkInputInfoReply
 	AppNames []string
 }
 
 const maxVolume = 0x10000
 
-func (c *pulseAudio) GetAppVolume(appName string) (*float32, error) {
-	request := proto.GetSinkInputInfoList{}
-	reply := proto.GetSinkInputInfoListReply{}
-
-	if err := c.client.Request(&request, &reply); err != nil {
+func CreatePulseClient(applicationName string) (*pulseClient, error) {
+	client, _, err := proto.Connect("")
+	if err != nil {
 		return nil, err
 	}
 
-	for _, info := range reply {
-		name, ok := info.Properties["application.process.binary"]
-		if !ok {
-			return nil, errors.New("Failed to find app name")
-		}
-
-		if name.String() == appName {
-			return parseChannelVolumes(info.ChannelVolumes), nil
-		}
+	request := proto.SetClientName{
+		Props: proto.PropList{
+			"application.name": proto.PropListString(applicationName),
+		},
 	}
-	return nil, fmt.Errorf(": %s", appName)
+	reply := proto.SetClientNameReply{}
+
+	if err := client.Request(&request, &reply); err != nil {
+		return nil, err
+	}
+	return &pulseClient{client: client}, nil
 }
 
-func (sessions *AppSessions) ChangeAppVolume(cfg *Config, volume []float32, c *pulseAudio) error {
-	unmappedSlider, unmappedOk := cfg.AppSlidderMapping["unmapped"]
-
-	for name, info := range sessions.Apps {
-		val, Ok := cfg.AppSlidderMapping[name]
-
-		if Ok && val.Slidder != -1 {
-			vol, err := GetArrayAt(volume, val.Slidder)
-
-			if err != nil {
-				continue
-			}
-
-			request := proto.SetSinkInputVolume{
-				SinkInputIndex: info.SinkInputIndex,
-				ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
-			}
-			if err := c.client.Request(&request, nil); err != nil {
-				continue
-			}
-		} else if unmappedOk {
-			vol, err := GetArrayAt(volume, unmappedSlider.Slidder)
-
-			if err != nil {
-				continue
-			}
-
-			request := proto.SetSinkInputVolume{
-				SinkInputIndex: info.SinkInputIndex,
-				ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
-			}
-
-			if err := c.client.Request(&request, nil); err != nil {
-				continue
-			}
-		}
-
+func (c *pulseClient) GetPulseSessions() (*PulseSessions, error) {
+	data := &PulseSessions{
+		Masters: make(map[string]*proto.GetSinkInfoReply),
+		Apps:    make(map[string][]*proto.GetSinkInputInfoReply),
 	}
-	return nil
-}
 
-func (sessions *AppSessions) ChangeMasterVolume(cfg *Config, volume []float32, c *pulseAudio) error {
-	masterSlider, masterOk := cfg.MasterSlidderMapping["master"]
-	masterSlider--
+	requestApp := proto.GetSinkInputInfoList{}
+	replyApp := proto.GetSinkInputInfoListReply{}
 
-	for name, info := range sessions.Masters {
-		pin, Ok := cfg.MasterSlidderMapping[name]
-		// Minus 1
-		pin--
-		if masterOk {
-			pin = masterSlider
-		}
+	if err := c.client.Request(&requestApp, &replyApp); err != nil {
+		return nil, err
+	}
 
-		// Get volume
-		vol, err := GetArrayAt(volume, pin)
-		if err != nil {
+	for _, info := range replyApp {
+		// Check for application process binary
+		appName, okApp := info.Properties["application.process.binary"]
+		// Check for second name
+		nodeName, okNode := info.Properties["node.name"]
+
+		if okApp {
+			data.Apps[appName.String()] = append(data.Apps[appName.String()], info)
+			data.AppNames = append(data.AppNames, appName.String())
+		} else if okNode {
+			data.Apps[nodeName.String()] = append(data.Apps[nodeName.String()], info)
+			data.AppNames = append(data.AppNames, appName.String())
+		} else {
 			continue
 		}
+	}
 
-		if Ok || masterOk {
-			request := proto.SetSinkVolume{
-				SinkIndex:      info.SinkIndex,
-				ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
+	requestMaster := proto.GetSinkInfoList{}
+	replyMaster := proto.GetSinkInfoListReply{}
+
+	if err := c.client.Request(&requestMaster, &replyMaster); err != nil {
+		return nil, err
+	}
+
+	for _, info := range replyMaster {
+		nodeName, ok := info.Properties["device.profile.name"]
+		if !ok {
+			continue
+		}
+		data.Masters[nodeName.String()] = info
+
+	}
+
+	return data, nil
+}
+
+func (sessions *PulseSessions) ChangeAppVolume(parsedData PulseApps, c *pulseClient) error {
+	for appName, vol := range parsedData {
+		if appName != "unmapped" {
+			pulseSink, ok := sessions.Apps[appName]
+			if ok {
+				for _, indices := range pulseSink {
+					request := proto.SetSinkInputVolume{
+						SinkInputIndex: indices.SinkInputIndex,
+						ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
+					}
+					if err := c.client.Request(&request, nil); err != nil {
+						fmt.Println("error:", err)
+						continue
+					}
+				}
 			}
-
-			if err := c.client.Request(&request, nil); err != nil {
-				continue
+		} else {
+			for appName, pulseSink := range sessions.Apps {
+				if _, ok := parsedData[appName]; !ok {
+					for _, indices := range pulseSink {
+						request := proto.SetSinkInputVolume{
+							SinkInputIndex: indices.SinkInputIndex,
+							ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
+						}
+						if err := c.client.Request(&request, nil); err != nil {
+							fmt.Println("error:", err)
+							continue
+						}
+					}
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func (c *pulseAudio) GetMasterVolume(name string) (*float32, error) {
+func (sessions *PulseSessions) ChangeMasterVolume(parsedData PulseApps, c *pulseClient) error {
+	for pulseOutputName, vol := range parsedData {
+		if pulseOutputName == "master" {
+			for outputName, pulseSink := range sessions.Masters {
+				if _, ok := parsedData[outputName]; !ok {
+					request := proto.SetSinkVolume{
+						SinkIndex:      pulseSink.SinkIndex,
+						ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
+					}
+					if err := c.client.Request(&request, nil); err != nil {
+						fmt.Println("error:", err)
+						continue
+					}
+				}
+			}
+		} else {
+			pulseSink, ok := sessions.Masters[pulseOutputName]
+			if ok {
+				request := proto.SetSinkVolume{
+					SinkIndex:      pulseSink.SinkIndex,
+					ChannelVolumes: []uint32{uint32(maxVolume * vol)}, // volume
+				}
+				if err := c.client.Request(&request, nil); err != nil {
+					fmt.Println("error:", err)
+					continue
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *pulseClient) GetMasterVolume(name string) (*float32, error) {
 	request := proto.GetSinkInfoList{}
 	reply := proto.GetSinkInfoListReply{}
 	totalvolume := []float32{}
@@ -149,85 +191,28 @@ func (c *pulseAudio) GetMasterVolume(name string) (*float32, error) {
 	return nil, fmt.Errorf("Failed to find audio ouput named: %s", name)
 }
 
-func (c *pulseAudio) GetAudioSessions() (*AppSessions, error) {
-	data := &AppSessions{
-		Masters: make(map[string]*proto.GetSinkInfoReply),
-		Apps:    make(map[string]*proto.GetSinkInputInfoReply),
-	}
+func (c *pulseClient) GetAppVolume(appName string) (*float32, error) {
+	request := proto.GetSinkInputInfoList{}
+	reply := proto.GetSinkInputInfoListReply{}
 
-	requestApp := proto.GetSinkInputInfoList{}
-	replyApp := proto.GetSinkInputInfoListReply{}
-
-	if err := c.client.Request(&requestApp, &replyApp); err != nil {
+	if err := c.client.Request(&request, &reply); err != nil {
 		return nil, err
 	}
 
-	for _, info := range replyApp {
-		appName, okApp := info.Properties["application.process.binary"]
-		nodeName, okNode := info.Properties["node.name"]
-
-		if okApp {
-			data.Apps[appName.String()] = info
-			data.AppNames = append(data.AppNames, appName.String())
-		} else if okNode {
-			data.Apps[nodeName.String()] = info
-			data.AppNames = append(data.AppNames, appName.String())
-		} else {
-			continue
-		}
-	}
-
-	requestMaster := proto.GetSinkInfoList{}
-	replyMaster := proto.GetSinkInfoListReply{}
-
-	if err := c.client.Request(&requestMaster, &replyMaster); err != nil {
-		return nil, err
-	}
-
-	for _, info := range replyMaster {
-		nodeName, ok := info.Properties["device.profile.name"]
+	for _, info := range reply {
+		name, ok := info.Properties["application.process.binary"]
 		if !ok {
-			continue
+			return nil, errors.New("Failed to find app name")
 		}
-		data.Masters[nodeName.String()] = info
 
+		if name.String() == appName {
+			return parseChannelVolumes(info.ChannelVolumes), nil
+		}
 	}
-
-	return data, nil
+	return nil, fmt.Errorf(": %s", appName)
 }
 
-func CreatePulseClient(applicationName string) (*pulseAudio, error) {
-	client, _, err := proto.Connect("")
-	if err != nil {
-		return nil, err
-	}
-
-	request := proto.SetClientName{
-		Props: proto.PropList{
-			"application.name": proto.PropListString(applicationName),
-		},
-	}
-	reply := proto.SetClientNameReply{}
-
-	if err := client.Request(&request, &reply); err != nil {
-		return nil, err
-	}
-	return &pulseAudio{client: client}, nil
-}
-
-func parseChannelVolumes(volumes []uint32) *float32 {
-	var level uint32
-
-	for _, volume := range volumes {
-		level += volume
-	}
-
-	vol := float32(level) / float32(len(volumes)) / float32(maxVolume)
-
-	return &vol
-}
-
-func (sessions *AppSessions) DisplayAppNames() {
+func (sessions *PulseSessions) DisplayAppNames() {
 	fmt.Println("       Audio Devices and Apps:")
 	fmt.Println("List of Open Audio Apps:")
 	fmt.Println("- unmapped")
@@ -241,4 +226,16 @@ func (sessions *AppSessions) DisplayAppNames() {
 		fmt.Printf("- %s\n", output)
 	}
 	fmt.Println("")
+}
+
+func parseChannelVolumes(volumes []uint32) *float32 {
+	var level uint32
+
+	for _, volume := range volumes {
+		level += volume
+	}
+
+	vol := float32(level) / float32(len(volumes)) / float32(maxVolume)
+
+	return &vol
 }
