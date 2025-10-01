@@ -61,9 +61,6 @@ func onReady() {
 	for {
 		dat = <-mixmaster1out
 
-		//fmt.Print("mixMaster1 data: ")
-		//fmt.Println(dat)
-
 		// Get pulse audio sessions
 		pulseSessions, err := pulseClient.GetPulseSessions()
 		if err != nil {
@@ -72,7 +69,7 @@ func onReady() {
 		}
 
 		// Get mpris sessions
-		mpirsSessions, err := mprisClient.ConnectToApps(pulseSessions)
+		mpirsSessions, err := mprisClient.GetMpirsSessions()
 		if err != nil {
 			// could not get app media controls
 			return
@@ -80,10 +77,7 @@ func onReady() {
 
 		pulseSessions.ChangeAppVolume(dat.PulseApps, pulseClient)
 		pulseSessions.ChangeMasterVolume(dat.MasterOuputs, pulseClient)
-		if false {
-			fmt.Println(mpirsSessions)
-		}
-		//mpirsSessions.MediaControlApps(dat.MpirsApps, mpirsSessions)
+		mpirsSessions.MediaControls(dat.MpirsApps, mprisClient)
 
 		select {
 		case <-quit.ClickedCh:

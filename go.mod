@@ -7,14 +7,9 @@ require (
 	github.com/Endg4meZer0/go-mpris v1.0.5
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/jfreymuth/pulse v0.1.1
-	github.com/sahilm/fuzzy v0.1.1
 	github.com/sstallion/go-hid v0.15.0
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
-	github.com/texttheater/golang-levenshtein/levenshtein v0.0.0-20200805054039-cae8b0eaed6c
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require (
-	github.com/kylelemons/godebug v1.1.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
-)
+require golang.org/x/sys v0.15.0 // indirect

@@ -2,113 +2,115 @@ package mixmaster
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/Endg4meZer0/go-mpris"
 	"github.com/godbus/dbus/v5"
-	"github.com/sahilm/fuzzy"
-	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
-type DBusConnection struct {
+type mpirsClient struct {
 	Conn *dbus.Conn
 }
 
-type Players map[string]*mpris.Player
+type MpirsSessions map[string]*mpris.Player
 
-func MprisInitialize() (*DBusConnection, error) {
+func MprisInitialize() (*mpirsClient, error) {
 	conn, err := dbus.SessionBus()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &DBusConnection{Conn: conn}, nil
+	return &mpirsClient{Conn: conn}, nil
 }
 
-func (conn *DBusConnection) ConnectToApps(sessions *PulseSessions) (*Players, error) {
-	audioPlayers := make(Players)
+func (conn *mpirsClient) GetMpirsSessions() (*MpirsSessions, error) {
+	audioPlayers := make(MpirsSessions)
 
-	names, err := mpris.List(conn.Conn)
-
+	appNames, err := mpris.List(conn.Conn)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("Error getting mpirs app list")
 	}
-
-	for _, name := range names {
-		player := mpris.New(conn.Conn, name)
+	for _, appName := range appNames {
+		player := mpris.New(conn.Conn, appName)
 		playerName := strings.ToLower(strings.Split(player.GetShortName(), ".")[0])
-
 		audioPlayers[playerName] = player
 	}
 	return &audioPlayers, nil
 }
 
-// func (p Players) PausePlay(cfg *Config, deviceData *DeviceData) {
-// 	for appName, val := range p {
-// 		for name, slidder := range cfg.AppSlidderMapping {
-// 			// Play and Pause
-// 			var pin = cfg.AppSlidderMapping[name].PlayPause
-// 			if slidder.MpirsAppName == appName && pin != -1 {
-// 				if state, _ := GetArrayAt(deviceData.Button, pin); state {
-// 					val.PlayPause()
-// 				}
-// 			}
+func (sessions *MpirsSessions) MediaControls(parsedData MpirsApps, c *mpirsClient) error {
+	for appName, appData := range parsedData {
+		mpirsSocket, ok := (*sessions)[appName]
+		if ok {
+			if appData.Back {
+				mpirsSocket.Previous()
+			}
+			if appData.PausePlay {
+				mpirsSocket.PlayPause()
+			}
+			if appData.Next {
+				mpirsSocket.Next()
+			}
+		}
 
-// 			// Next Track
-// 			pin = cfg.AppSlidderMapping[name].Next
-// 			if slidder.MpirsAppName == appName && pin != -1 {
-// 				if state, _ := GetArrayAt(deviceData.Button, pin); state {
-// 					val.Next()
-// 				}
-// 			}
+	}
+	return nil
+}
 
-// 			// Previous Track
-// 			pin = cfg.AppSlidderMapping[name].Back
-// 			if slidder.MpirsAppName == appName && pin != -1 {
-// 				if state, _ := GetArrayAt(deviceData.Button, pin); state {
-// 					val.Previous()
-// 				}
-// 			}
-// 		}
+// // Unused Code
+// func (conn *DBusConnection) ConnectToApps(sessions *PulseSessions) (*Players, error) {
+// 	audioPlayers := make(Players)
+
+// 	names, err := mpris.List(conn.Conn)
+
+// 	if err != nil {
+// 		return nil, err
 // 	}
+
+// 	for _, name := range names {
+// 		player := mpris.New(conn.Conn, name)
+// 		playerName := strings.ToLower(strings.Split(player.GetShortName(), ".")[0])
+
+// 		audioPlayers[playerName] = player
+// 	}
+// 	return &audioPlayers, nil
 // }
 
-// BestMatch finds the closest match in candidates for the given input.
-func bestMatch(input string, candidates []string) (*string, error) {
-	best := ""
-	bestDistance := -1
+// // BestMatch finds the closest match in candidates for the given input.
+// func bestMatch(input string, candidates []string) (*string, error) {
+// 	best := ""
+// 	bestDistance := -1
 
-	for _, candidate := range candidates {
-		dist := levenshtein.DistanceForStrings([]rune(input), []rune(candidate), levenshtein.DefaultOptions)
+// 	for _, candidate := range candidates {
+// 		dist := levenshtein.DistanceForStrings([]rune(input), []rune(candidate), levenshtein.DefaultOptions)
 
-		if bestDistance == -1 || dist < bestDistance {
-			best = candidate
-			bestDistance = dist
-		}
-	}
+// 		if bestDistance == -1 || dist < bestDistance {
+// 			best = candidate
+// 			bestDistance = dist
+// 		}
+// 	}
 
-	if bestDistance > 10 {
-		return nil, fmt.Errorf("No match found. Distance was: %d", bestDistance)
-	}
-	return &best, nil
-}
+// 	if bestDistance > 10 {
+// 		return nil, fmt.Errorf("No match found. Distance was: %d", bestDistance)
+// 	}
+// 	return &best, nil
+// }
 
-// BestMatch finds the best fuzzy match for input among candidates.
-func bestMatchFZ(input string, candidates []string) (*string, error) {
-	if len(candidates) == 0 {
-		return nil, errors.New("No input")
-	}
+// // BestMatch finds the best fuzzy match for input among candidates.
+// func bestMatchFZ(input string, candidates []string) (*string, error) {
+// 	if len(candidates) == 0 {
+// 		return nil, errors.New("No input")
+// 	}
 
-	// fuzzy.Find returns matches sorted by score (best first)
-	matches := fuzzy.Find(input, candidates)
+// 	// fuzzy.Find returns matches sorted by score (best first)
+// 	matches := fuzzy.Find(input, candidates)
 
-	if len(matches) == 0 {
-		return nil, errors.New("No items to be matched to")
-	}
+// 	if len(matches) == 0 {
+// 		return nil, errors.New("No items to be matched to")
+// 	}
 
-	// First match is the best one
-	best := matches[0]
-	return &candidates[best.Index], nil
-}
+// 	// First match is the best one
+// 	best := matches[0]
+// 	return &candidates[best.Index], nil
+// }
