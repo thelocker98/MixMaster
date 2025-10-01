@@ -7,17 +7,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type AppData struct {
-	MpirsAppName string `yaml:"appname"`
-	Slidder      int    `yaml:"slidder"`
-	Back         int    `yaml:"back"`
-	Next         int    `yaml:"next"`
-	PlayPause    int    `yaml:"playpause"`
+type mpirsData struct {
+	Back      int `yaml:"back"`
+	PlayPause int `yaml:"playpause"`
+	Next      int `yaml:"next"`
 }
 
 type Config struct {
-	AppSlidderMapping    map[string]AppData `yaml:"app-slidders"`
-	MasterSlidderMapping map[string]int     `yaml:"master-slidders,omitempty"`
+	AppVolumeControls    map[string]int       `yaml:"pulse-app-slidders,omitempty"`
+	MasterVolumeControls map[string]int       `yaml:"pulse-master-slidders,omitempty"`
+	AppMediaControls     map[string]mpirsData `yaml:"app-media-control,omitempty"`
 
 	SlidderInvert  bool   `yaml:"invert_slidders,omitempty"`
 	COMPort        string `yaml:"com_port,omitempty"`
@@ -38,16 +37,18 @@ func ParseConfig(path string) *Config {
 		log.Fatalf("error parsing yaml: %v", err)
 	}
 
-	for name, data := range cfg.AppSlidderMapping {
+	for name, data := range cfg.AppVolumeControls {
+		cfg.AppVolumeControls[name] = data - 1
+	}
+	for name, data := range cfg.AppMediaControls {
 		data.Next--
 		data.Back--
 		data.PlayPause--
-		data.Slidder--
-		cfg.AppSlidderMapping[name] = data
+		cfg.AppMediaControls[name] = data
 	}
-	for name, data := range cfg.MasterSlidderMapping {
+	for name, data := range cfg.MasterVolumeControls {
 		data--
-		cfg.MasterSlidderMapping[name] = data
+		cfg.MasterVolumeControls[name] = data
 	}
 
 	return &cfg

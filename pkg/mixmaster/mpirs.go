@@ -45,35 +45,35 @@ func (conn *DBusConnection) ConnectToApps(sessions *PulseSessions) (*Players, er
 	return &audioPlayers, nil
 }
 
-func (p Players) PausePlay(cfg *Config, deviceData *DeviceData) {
-	for appName, val := range p {
-		for name, slidder := range cfg.AppSlidderMapping {
-			// Play and Pause
-			var pin = cfg.AppSlidderMapping[name].PlayPause
-			if slidder.MpirsAppName == appName && pin != -1 {
-				if state, _ := GetArrayAt(deviceData.Button, pin); state {
-					val.PlayPause()
-				}
-			}
+// func (p Players) PausePlay(cfg *Config, deviceData *DeviceData) {
+// 	for appName, val := range p {
+// 		for name, slidder := range cfg.AppSlidderMapping {
+// 			// Play and Pause
+// 			var pin = cfg.AppSlidderMapping[name].PlayPause
+// 			if slidder.MpirsAppName == appName && pin != -1 {
+// 				if state, _ := GetArrayAt(deviceData.Button, pin); state {
+// 					val.PlayPause()
+// 				}
+// 			}
 
-			// Next Track
-			pin = cfg.AppSlidderMapping[name].Next
-			if slidder.MpirsAppName == appName && pin != -1 {
-				if state, _ := GetArrayAt(deviceData.Button, pin); state {
-					val.Next()
-				}
-			}
+// 			// Next Track
+// 			pin = cfg.AppSlidderMapping[name].Next
+// 			if slidder.MpirsAppName == appName && pin != -1 {
+// 				if state, _ := GetArrayAt(deviceData.Button, pin); state {
+// 					val.Next()
+// 				}
+// 			}
 
-			// Previous Track
-			pin = cfg.AppSlidderMapping[name].Back
-			if slidder.MpirsAppName == appName && pin != -1 {
-				if state, _ := GetArrayAt(deviceData.Button, pin); state {
-					val.Previous()
-				}
-			}
-		}
-	}
-}
+// 			// Previous Track
+// 			pin = cfg.AppSlidderMapping[name].Back
+// 			if slidder.MpirsAppName == appName && pin != -1 {
+// 				if state, _ := GetArrayAt(deviceData.Button, pin); state {
+// 					val.Previous()
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 // BestMatch finds the closest match in candidates for the given input.
 func bestMatch(input string, candidates []string) (*string, error) {
