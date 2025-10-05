@@ -1,7 +1,5 @@
 package mixmaster
 
-import "fmt"
-
 type MpirsApp struct {
 	Back      bool
 	PausePlay bool
@@ -50,6 +48,5 @@ func (data *DeviceData) parseDataConfig(cfg *Config) (ParsedAudioData, error) {
 		}
 	}
 
-	fmt.Println(parsedData)
 	return parsedData, nil
 }

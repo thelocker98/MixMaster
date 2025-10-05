@@ -1,7 +1,6 @@
 package mixmaster
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,12 +9,12 @@ import (
 	"time"
 
 	hid "github.com/sstallion/go-hid"
-	"github.com/tarm/serial"
+	"go.bug.st/serial"
 )
 
 type Device struct {
-	HidDev    *string
-	SerialDev *serial.Config
+	HidDev    map[int64]string
+	SerialDev map[int64]string
 }
 
 type DeviceData struct {
@@ -88,15 +87,15 @@ func HashSlice[T any](slice []T) (string, error) {
 	return hex.EncodeToString(h[:]), nil
 }
 
-func ListDevices() []string {
+func ListHIDDevices() []string {
 	// Initialize the hid package.
 	if err := hid.Init(); err != nil {
 	}
 
 	var paths []string
 
+	//hid.Enumerate(0x2341, 0x8037, func(info *hid.DeviceInfo) error {
 	hid.Enumerate(hid.VendorIDAny, hid.ProductIDAny, func(info *hid.DeviceInfo) error {
-		fmt.Printf("%s:\n", info.Path)
 		paths = append(paths, info.Path)
 		return nil
 	})
@@ -104,20 +103,94 @@ func ListDevices() []string {
 	return paths
 }
 
-func GetDevice(id int64) (*Device, error) {
-	if err := hid.Init(); err != nil {
+func ListSerialDevices() []string {
+	ports, err := serial.GetPortsList()
+
+	if err != nil {
+		return nil
 	}
 
-	// hid.Enumerate(hid.VendorIDAny, hid.ProductIDAny, func(info *hid.DeviceInfo) error {
-	// 	fmt.Printf("%s:\n", info.Path)
-	// 	d, _ := hid.OpenPath(info.Path)
+	return ports
+}
 
-	// 	d.Close()
-	// 	return nil
-	// })
+func GetDevice() (*Device, error) {
+	deviceList := Device{
+		HidDev:    make(map[int64]string),
+		SerialDev: make(map[int64]string),
+	}
 
-	// return nil, errors.New("No Device Found")
-	return &Device{HidDev: strPtr("/dev/hidraw5"), SerialDev: nil}, nil
+	hidDeviceList := ListHIDDevices()
+	for _, device := range hidDeviceList {
+		d, err := hid.OpenPath(device)
+
+		if err != nil {
+			continue
+		}
+
+		// Send a 5 to the HID device to trigger a data push
+		data := make([]byte, 64)
+		data[0] = 5
+		_, err = d.Write(data)
+		if err != nil {
+			// Close connection and end this current loop
+			d.Close()
+			continue
+		}
+
+		// Read data from the current HID device. If device does not respone it 100 milliseconds then timeout
+		_, err = d.ReadWithTimeout(data, 100*time.Millisecond)
+		if err != nil {
+			// Close connection and end this current loop
+			d.Close()
+			continue
+		}
+		// Close any Open Devices
+		d.Close()
+
+		// Remove trailing zeros from byte array
+		var cleanData []byte
+		for _, b := range data {
+			if b == 0 {
+				break
+			}
+			cleanData = append(cleanData, b)
+		}
+		deviceList.HidDev[parseDeviceData(cleanData, false).Id] = device
+	}
+
+	serialDeviceList := ListSerialDevices()
+
+	for _, port := range serialDeviceList {
+		p, err := serial.Open(port, &serial.Mode{BaudRate: 115200})
+		if err != nil {
+			fmt.Println("error: ", err)
+			continue
+		}
+
+		buff := make([]byte, 512)
+
+		p.SetReadTimeout(300 * time.Millisecond)
+		n, err := p.Read(buff)
+		if err != nil || n == 0 {
+			p.Close()
+			continue
+		}
+
+		var cleanData []byte
+
+		for _, value := range buff[:n] {
+			cleanData = append(cleanData, value)
+			if value == '}' {
+				break
+			}
+		}
+		p.Close()
+
+		deviceList.SerialDev[parseDeviceData(cleanData, false).Id] = port
+	}
+
+	// No Device Found
+	return &deviceList, nil
 }
 
 func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
@@ -133,6 +206,7 @@ func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
 		buf[0] = 5
 		if _, err := d.Write(buf); err != nil {
 			fmt.Println("Write error:")
+			continue
 		}
 
 		// Try to read a packet
@@ -141,6 +215,7 @@ func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
 		for time.Now().Before(deadline) {
 			// Read requested state.
 			if _, err := d.Read(in); err != nil {
+				fmt.Println("Read Error:")
 				break
 			}
 			// Remove trailing zeros
@@ -162,14 +237,6 @@ func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
 		values := parseDeviceData(clean, cfg.SlidderInvert)
 
 		if values.err != nil {
-			// var err error
-			// err = errors.New("Trying to Initialize")
-			// for err != nil {
-			// 	fmt.Println("searching for new device")
-			// 	time.Sleep(1 * time.Second)
-			// 	d, err = InitializeConnectionHID(cfg)
-			// }
-
 			continue
 		}
 
@@ -179,25 +246,17 @@ func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
 	}
 }
 
-func ReadDeviceDataSerial(s *serial.Port, cfg *Config, out chan<- *DeviceData) {
-	r := bufio.NewReader(s)
-
+func ReadDeviceDataSerial(p serial.Port, cfg *Config, out chan<- *DeviceData) {
+	buff := make([]byte, 256)
 	for {
-		data, errReading := r.ReadBytes('\n')
-		if errReading != nil {
-			// var err error
-			// err = errors.New("Trying to Initialize")
+		n, err := p.Read(buff)
 
-			// for err != nil {
-			// 	s, err = InitializeConnection(cfg)
-			// }
-			// r = bufio.NewReader(s)
-
+		if err != nil {
 			continue
 		}
 
 		// parse data from the device
-		values := parseDeviceData(data, cfg.SlidderInvert)
+		values := parseDeviceData(buff[:n], cfg.SlidderInvert)
 
 		out <- values
 	}

@@ -20,8 +20,8 @@ func main() {
 	flag.Parse()
 
 	if *showSessions {
-		fmt.Println("Sessions")
-		fmt.Println(mixmaster.ListDevices())
+		dev, _ := mixmaster.GetDevice()
+		fmt.Println("Device List", dev)
 		return
 	}
 
@@ -54,9 +54,11 @@ func onReady() {
 
 	// USB HID audio Device
 	cfg1 := mixmaster.ParseConfig("../../../myconfig.yaml") //*configFile)
-	dev, _ := mixmaster.GetDevice(6455666)
+	dev, _ := mixmaster.GetDevice()
+
 	mixmaster1out := make(chan *mixmaster.ParsedAudioData)
-	go mixmaster.NewMixMaster(cfg1, dev, mixmaster1out)
+
+	go mixmaster.NewMixMaster(cfg1, dev.HidDev[10051537], mixmaster1out)
 
 	for {
 		dat = <-mixmaster1out

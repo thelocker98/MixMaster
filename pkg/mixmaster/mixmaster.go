@@ -4,10 +4,11 @@ import (
 	"errors"
 
 	"github.com/sstallion/go-hid"
-	"github.com/tarm/serial"
+
+	"go.bug.st/serial"
 )
 
-func NewMixMaster(cfg *Config, dev *Device, parsedChanOut chan<- *ParsedAudioData) error {
+func NewMixMaster(cfg *Config, dev string, parsedChanOut chan<- *ParsedAudioData) error {
 	// Define Data Channel
 	var deviceData *DeviceData
 
@@ -15,8 +16,8 @@ func NewMixMaster(cfg *Config, dev *Device, parsedChanOut chan<- *ParsedAudioDat
 	dataChan := make(chan *DeviceData)
 
 	// Check if hid device is specified
-	if dev.HidDev != nil {
-		d, err := hid.OpenPath(*dev.HidDev)
+	if dev != "" {
+		d, err := hid.OpenPath(dev)
 		if err != nil {
 			return errors.New("could not opening HID device")
 		}
@@ -24,8 +25,8 @@ func NewMixMaster(cfg *Config, dev *Device, parsedChanOut chan<- *ParsedAudioDat
 		go ReadDeviceDataHID(d, cfg, dataChan)
 
 		//Check if serial device is specified
-	} else if dev.SerialDev != nil {
-		s, err := serial.OpenPort(dev.SerialDev)
+	} else if dev == "" {
+		s, err := serial.Open(dev, &serial.Mode{BaudRate: 11520})
 		if err != nil {
 			return errors.New("could not opening Serial device")
 		}

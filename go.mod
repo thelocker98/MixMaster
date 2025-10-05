@@ -8,8 +8,11 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/jfreymuth/pulse v0.1.1
 	github.com/sstallion/go-hid v0.15.0
-	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
+	go.bug.st/serial v1.6.4
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require golang.org/x/sys v0.15.0 // indirect
+require (
+	github.com/creack/goselect v0.1.2 // indirect
+	golang.org/x/sys v0.19.0 // indirect
+)

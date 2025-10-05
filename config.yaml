@@ -1,13 +1,12 @@
 # you can use 'master' to indicate the master channel, or a list of process names to create a group
 # you can use 'unmapped' to control all apps that aren't bound to any slider (this ignores master, system, mic and device-targeting sessions)
 # important: slider indexes start at 0, regardless of which analog pins you're using!
-app-slidders:
-  # unmapped:
-  #   slidder: 3
-  vivaldi-bin:
-    slidder: 2
+pulse-app-slidders:
+  brave: 1
+  unmapped: 2
+  vivaldi-bin: 3
 
-master-slidders:
+pulse-master-slidders:
   master: 4
 
 # set this to true if you want the controls inverted (i.e. top is 0%, bottom is 100%)
