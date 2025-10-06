@@ -8,42 +8,53 @@ import (
 	"go.bug.st/serial"
 )
 
-func NewMixMaster(cfg *Config, dev string, parsedChanOut chan<- *ParsedAudioData) error {
-	// Define Data Channel
-	var deviceData *DeviceData
+type mixMasterInstance struct {
+	HID    *hid.Device
+	Serial serial.Port
+}
 
-	// Create channel to receive data
-	dataChan := make(chan *DeviceData)
-
+func NewMixMaster(cfg *Config, dev string) (*mixMasterInstance, error) {
 	// Check if hid device is specified
 	if dev != "" {
 		d, err := hid.OpenPath(dev)
 		if err != nil {
-			return errors.New("could not opening HID device")
+			return nil, errors.New("could not opening HID device")
 		}
-
-		go ReadDeviceDataHID(d, cfg, dataChan)
+		return &mixMasterInstance{HID: d}, nil
 
 		//Check if serial device is specified
 	} else if dev == "" {
 		s, err := serial.Open(dev, &serial.Mode{BaudRate: 11520})
 		if err != nil {
-			return errors.New("could not opening Serial device")
+			return nil, errors.New("could not opening Serial device")
 		}
 
-		go ReadDeviceDataSerial(s, cfg, dataChan)
+		return &mixMasterInstance{Serial: s}, nil
 
-		// end if no device is found
 	} else {
-		return errors.New("no device found")
+		return nil, errors.New("no device found")
 	}
+}
 
-	for {
-		// Read from channel whenever new data arrives
-		deviceData = <-dataChan
+func (dev mixMasterInstance) Pull(cfg *Config) (*ParsedAudioData, error) {
+	if dev.HID != nil {
+		deviceData, err := ReadDeviceDataHID(dev.HID, cfg)
+		if err != nil {
+			return nil, err
+		}
+		data, err := deviceData.parseDataConfig(cfg)
+		return &data, err
 
-		data, _ := deviceData.parseDataConfig(cfg)
-		parsedChanOut <- &data
+	} else if dev.Serial != nil {
+		deviceData, err := ReadDeviceDataSerial(dev.Serial, cfg)
+		if err != nil {
+			return nil, err
+		}
+		data, err := deviceData.parseDataConfig(cfg)
+		return &data, err
+
+	} else {
+		return nil, errors.New("No Device")
 	}
 }
 

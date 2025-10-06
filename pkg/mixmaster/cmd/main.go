@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"fyne.io/systray"
+
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/icon"
 )
@@ -26,11 +27,9 @@ func main() {
 	}
 
 	systray.Run(onReady, onExit)
-
 }
 
 func onReady() {
-	var dat *mixmaster.ParsedAudioData
 	// Create Pulse Client
 	pulseClient, err := mixmaster.CreatePulseClient("MixMaster")
 	if err != nil {
@@ -53,15 +52,20 @@ func onReady() {
 	quit := systray.AddMenuItem("Quit", "Stop deej and quit")
 
 	// USB HID audio Device
-	cfg1 := mixmaster.ParseConfig("../../../myconfig.yaml") //*configFile)
 	dev, _ := mixmaster.GetDevice()
-
-	mixmaster1out := make(chan *mixmaster.ParsedAudioData)
-
-	go mixmaster.NewMixMaster(cfg1, dev.HidDev[10051537], mixmaster1out)
+	cfg := mixmaster.ParseConfig("../../../myconfig.yaml") //*configFile)
+	deviceTest, err := mixmaster.NewMixMaster(cfg, dev.HidDev[10051537])
+	if err != nil {
+		fmt.Println("Failed to Find Device")
+		return
+	}
 
 	for {
-		dat = <-mixmaster1out
+		dat, err := deviceTest.Pull(cfg)
+		if err != nil {
+			fmt.Println("Error Pulling Data:", err)
+			continue
+		}
 
 		// Get pulse audio sessions
 		pulseSessions, err := pulseClient.GetPulseSessions()
@@ -83,6 +87,7 @@ func onReady() {
 
 		select {
 		case <-quit.ClickedCh:
+			fmt.Println("exit clicked")
 			systray.Quit()
 
 		case <-config.ClickedCh:

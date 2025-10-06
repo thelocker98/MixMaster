@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -193,71 +194,52 @@ func GetDevice() (*Device, error) {
 	return &deviceList, nil
 }
 
-func ReadDeviceDataHID(d *hid.Device, cfg *Config, out chan<- *DeviceData) {
+func ReadDeviceDataHID(d *hid.Device, cfg *Config) (*DeviceData, error) {
+	buff := make([]byte, 64) // automatically filled with zeros
+	buff[0] = 5
+	if _, err := d.Write(buff); err != nil {
+		return nil, errors.New("error writing data to device")
+	}
+
 	// Buffers for read/write
 	in := make([]byte, 64)
 	var clean []byte
-
-	for {
-		buf := make([]byte, 64) // automatically filled with zeros
-		for i := range buf {
-			buf[i] = 0
+	deadline := time.Now().Add(1000 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		// Read requested state.
+		if _, err := d.Read(in); err != nil {
+			return nil, errors.New("error reading data from device")
 		}
-		buf[0] = 5
-		if _, err := d.Write(buf); err != nil {
-			fmt.Println("Write error:")
-			continue
-		}
-
-		// Try to read a packet
-		clean = []byte{}
-		deadline := time.Now().Add(1000 * time.Millisecond)
-		for time.Now().Before(deadline) {
-			// Read requested state.
-			if _, err := d.Read(in); err != nil {
-				fmt.Println("Read Error:")
+		// Remove trailing zeros
+		for _, b := range in {
+			if b == 0 {
 				break
 			}
-			// Remove trailing zeros
-			for _, b := range in {
-				if b == 0 {
-					break
-				}
-				clean = append(clean, b)
-			}
-			// Convert to string
-			if clean[0] != '{' {
-				clean = []byte{}
-				break
-			} else if clean[len(clean)-1] == '}' {
-				break
-			}
+			clean = append(clean, b)
 		}
-
-		values := parseDeviceData(clean, cfg.SlidderInvert)
-
-		if values.err != nil {
-			continue
+		// Convert to string
+		if clean[0] != '{' {
+			clean = []byte{}
+			return nil, errors.New("recieved currupt data")
+		} else if clean[len(clean)-1] == '}' {
+			break
 		}
-
-		out <- values
-
-		time.Sleep(50 * time.Millisecond)
 	}
+
+	values := parseDeviceData(clean, cfg.SlidderInvert)
+
+	return values, nil
 }
 
-func ReadDeviceDataSerial(p serial.Port, cfg *Config, out chan<- *DeviceData) {
+func ReadDeviceDataSerial(p serial.Port, cfg *Config) (*DeviceData, error) {
 	buff := make([]byte, 256)
-	for {
-		n, err := p.Read(buff)
+	n, err := p.Read(buff)
 
-		if err != nil {
-			continue
-		}
-
-		// parse data from the device
-		values := parseDeviceData(buff[:n], cfg.SlidderInvert)
-
-		out <- values
+	if err != nil {
+		return nil, errors.New("error reading data from device")
 	}
+
+	// parse data from the device
+	values := parseDeviceData(buff[:n], cfg.SlidderInvert)
+	return values, nil
 }
