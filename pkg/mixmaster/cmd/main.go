@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os/exec"
+	"time"
 
-	"fyne.io/systray"
-
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/widget"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster/icon"
 )
 
 var (
@@ -26,87 +27,82 @@ func main() {
 		return
 	}
 
-	systray.Run(onReady, onExit)
-}
+	a := app.New()
+	a.SendNotification(fyne.NewNotification("Mixmaster", "App has been started"))
+	w := a.NewWindow("MixMaster")
 
-func onReady() {
-	// Create Pulse Client
-	pulseClient, err := mixmaster.CreatePulseClient("MixMaster")
-	if err != nil {
-		//return errors.New("could not creating Pulse client")
-		return
+	if desk, ok := a.(desktop.App); ok {
+		m := fyne.NewMenu("MixMaster",
+			fyne.NewMenuItem("Show", func() {
+				w.Show()
+			}))
+		desk.SetSystemTrayMenu(m)
 	}
+	w.SetContent(widget.NewLabel("Mixmaster"))
+	w.SetCloseIntercept(func() {
+		w.Hide()
+	})
 
-	// Set up mpris
-	mprisClient, err := mixmaster.MprisInitialize()
-	if err != nil {
-		//return errors.New("could not creating mpirs client")
-		return
-	}
-
-	// Systray setup
-	systray.SetTemplateIcon(icon.Data, icon.Data)
-	systray.SetTitle("MixMaster")
-	config := systray.AddMenuItem("Config", "Configure Settings")
-	systray.AddSeparator()
-	quit := systray.AddMenuItem("Quit", "Stop deej and quit")
-
-	// USB HID audio Device
-	dev, _ := mixmaster.GetDevice()
-	cfg := mixmaster.ParseConfig("../../../myconfig.yaml") //*configFile)
-	deviceTest, err := mixmaster.NewMixMaster(cfg, dev.HidDev[10051537])
-	if err != nil {
-		fmt.Println("Failed to Find Device")
-		return
-	}
-
-	for {
-		dat, err := deviceTest.Pull(cfg)
+	go func() {
+		// Create Pulse Client
+		pulseClient, err := mixmaster.CreatePulseClient("MixMaster")
 		if err != nil {
-			fmt.Println("Error Pulling Data:", err)
-			continue
-		}
-
-		// Get pulse audio sessions
-		pulseSessions, err := pulseClient.GetPulseSessions()
-		if err != nil {
-			// could not get pulse audio sessions
+			//return errors.New("could not creating Pulse client")
 			return
 		}
 
-		// Get mpris sessions
-		mpirsSessions, err := mprisClient.GetMpirsSessions()
+		// Set up mpris
+		mprisClient, err := mixmaster.MprisInitialize()
 		if err != nil {
-			// could not get app media controls
+			//return errors.New("could not creating mpirs client")
 			return
 		}
 
-		pulseSessions.ChangeAppVolume(dat.PulseApps, pulseClient)
-		pulseSessions.ChangeMasterVolume(dat.MasterOuputs, pulseClient)
-		mpirsSessions.MediaControls(dat.MpirsApps, mprisClient)
+		// USB HID audio Device
+	test:
+		dev, _ := mixmaster.GetDevice()
+		cfg := mixmaster.ParseConfig("../../../myconfig.yaml") //*configFile)
+		deviceTest, err := mixmaster.NewMixMaster(cfg, dev.HidDev[10051537])
+		if err != nil {
+			fmt.Println("Failed to Find Device")
+			time.Sleep(5 * time.Second)
+			goto test
+		}
 
-		select {
-		case <-quit.ClickedCh:
-			fmt.Println("exit clicked")
-			systray.Quit()
-
-		case <-config.ClickedCh:
-			fmt.Println("Config Clicked")
-
-			command := exec.Command("gedit", *configFile) // try gedit
-			if err := command.Run(); err != nil {
-				fmt.Println("Errors: ", err)
-				command := exec.Command("kate", *configFile) // try kate instead
-				if err := command.Run(); err != nil {
-					fmt.Println("Errors: ", err)
+		for {
+			dat, err := deviceTest.Pull(cfg)
+			if err != nil {
+				fmt.Println("Error Pulling Data:", err)
+			repeat:
+				time.Sleep(5 * time.Second)
+				dev, _ := mixmaster.GetDevice()
+				deviceTest, _ = mixmaster.NewMixMaster(cfg, dev.HidDev[10051537])
+				if deviceTest == nil {
+					fmt.Println("Did not find device:", dev.HidDev[10051537])
+					goto repeat
 				}
+				fmt.Println("Found")
+				continue
 			}
-		default:
-			// no option selected
-		}
-	}
-}
 
-func onExit() {
-	fmt.Println("Exited")
+			// Get pulse audio sessions
+			pulseSessions, err := pulseClient.GetPulseSessions()
+			if err != nil {
+				// could not get pulse audio sessions
+				return
+			}
+
+			// Get mpris sessions
+			mpirsSessions, err := mprisClient.GetMpirsSessions()
+			if err != nil {
+				// could not get app media controls
+				return
+			}
+			pulseSessions.ChangeAppVolume(dat.PulseApps, pulseClient)
+			pulseSessions.ChangeMasterVolume(dat.MasterOuputs, pulseClient)
+			mpirsSessions.MediaControls(dat.MpirsApps, mprisClient)
+		}
+	}()
+
+	a.Run()
 }
