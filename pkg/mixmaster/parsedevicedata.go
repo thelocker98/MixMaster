@@ -15,7 +15,7 @@ type ParsedAudioData struct {
 	MpirsApps    MpirsApps
 }
 
-func (data *DeviceData) parseDataConfig(cfg *Config) (ParsedAudioData, error) {
+func (data *DeviceData) parseDataConfig(cfg *DeviceConfig) (ParsedAudioData, error) {
 	var parsedData ParsedAudioData
 	parsedData.PulseApps = make(map[string]float32)
 	parsedData.MpirsApps = make(map[string]MpirsApp)

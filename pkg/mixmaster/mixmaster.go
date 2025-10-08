@@ -8,35 +8,35 @@ import (
 	"go.bug.st/serial"
 )
 
-type mixMasterInstance struct {
+type MixMasterInstance struct {
 	HID    *hid.Device
 	Serial serial.Port
 }
 
-func NewMixMaster(cfg *Config, dev string) (*mixMasterInstance, error) {
+func NewMixMaster(dev *Device, serialNum int64) (*MixMasterInstance, error) {
 	// Check if hid device is specified
-	if dev != "" {
-		d, err := hid.OpenPath(dev)
+	if devicePath, ok := dev.HidDev[serialNum]; ok {
+		d, err := hid.OpenPath(devicePath)
 		if err != nil {
 			return nil, errors.New("could not opening HID device")
 		}
-		return &mixMasterInstance{HID: d}, nil
+		return &MixMasterInstance{HID: d}, nil
 
 		//Check if serial device is specified
-	} else if dev == "" {
-		s, err := serial.Open(dev, &serial.Mode{BaudRate: 11520})
+	} else if devicePath, ok := dev.SerialDev[serialNum]; ok {
+		s, err := serial.Open(devicePath, &serial.Mode{BaudRate: 115200})
 		if err != nil {
 			return nil, errors.New("could not opening Serial device")
 		}
 
-		return &mixMasterInstance{Serial: s}, nil
+		return &MixMasterInstance{Serial: s}, nil
 
 	} else {
 		return nil, errors.New("no device found")
 	}
 }
 
-func (dev mixMasterInstance) Pull(cfg *Config) (*ParsedAudioData, error) {
+func (dev MixMasterInstance) Pull(cfg *DeviceConfig) (*ParsedAudioData, error) {
 	if dev.HID != nil {
 		deviceData, err := ReadDeviceDataHID(dev.HID, cfg)
 		if err != nil {

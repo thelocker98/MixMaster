@@ -30,12 +30,6 @@ type arduinoMsg struct {
 	Buttons  []int `json:"b"`
 }
 
-func roundFloat32(f float32, decimals int) float32 {
-	pow := math.Pow10(decimals)
-	return float32(math.Round(float64(f)*pow) / pow)
-}
-func strPtr(s string) *string { return &s }
-
 func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 
 	var msg arduinoMsg
@@ -69,23 +63,6 @@ func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
 		Button: buttons,
 		err:    nil,
 	}
-}
-
-func GetArrayAt[T any](array []T, index int) (T, error) {
-	var zero T
-	if index < 0 || index >= len(array) {
-		return zero, fmt.Errorf("index %d out of range [0,%d)", index, len(array))
-	}
-	return array[index], nil
-}
-
-func HashSlice[T any](slice []T) (string, error) {
-	b, err := json.Marshal(slice)
-	if err != nil {
-		return "", err
-	}
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:]), nil
 }
 
 func ListHIDDevices() []string {
@@ -194,7 +171,7 @@ func GetDevice() (*Device, error) {
 	return &deviceList, nil
 }
 
-func ReadDeviceDataHID(d *hid.Device, cfg *Config) (*DeviceData, error) {
+func ReadDeviceDataHID(d *hid.Device, cfg *DeviceConfig) (*DeviceData, error) {
 	buff := make([]byte, 64) // automatically filled with zeros
 	buff[0] = 5
 	if _, err := d.Write(buff); err != nil {
@@ -231,15 +208,93 @@ func ReadDeviceDataHID(d *hid.Device, cfg *Config) (*DeviceData, error) {
 	return values, nil
 }
 
-func ReadDeviceDataSerial(p serial.Port, cfg *Config) (*DeviceData, error) {
-	buff := make([]byte, 256)
-	n, err := p.Read(buff)
+func ReadDeviceDataSerial(p serial.Port, cfg *DeviceConfig) (*DeviceData, error) {
+	var data []byte
+	buf := make([]byte, 1)
 
-	if err != nil {
-		return nil, errors.New("error reading data from device")
+	for {
+		n, err := p.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		if n > 0 {
+			data = append(data, buf[0])
+			if buf[0] == '}' {
+				break
+			}
+		}
 	}
 
 	// parse data from the device
-	values := parseDeviceData(buff[:n], cfg.SlidderInvert)
+	values := parseDeviceData(data, cfg.SlidderInvert)
 	return values, nil
+}
+
+func JoinDeviceData(devices []*ParsedAudioData) ParsedAudioData {
+	var device ParsedAudioData
+	device.PulseApps = make(map[string]float32)
+	device.MpirsApps = make(map[string]MpirsApp)
+	device.MasterOuputs = make(map[string]float32)
+
+	for _, dev := range devices {
+		for appName, val := range dev.PulseApps {
+			if dat, ok := device.PulseApps[appName]; ok {
+				device.PulseApps[appName] = (val + dat) / 2
+			} else {
+				device.PulseApps[appName] = val
+			}
+		}
+		for appName, val := range dev.MasterOuputs {
+			if dat, ok := device.MasterOuputs[appName]; ok {
+				device.MasterOuputs[appName] = (val + dat) / 2
+			} else {
+				device.MasterOuputs[appName] = val
+			}
+		}
+		for appName, val := range dev.MpirsApps {
+			if dat, ok := device.MpirsApps[appName]; ok {
+				if device.MpirsApps[appName].Back != true {
+					dat.Back = val.Back
+				}
+				if device.MpirsApps[appName].PausePlay != true {
+					dat.PausePlay = val.PausePlay
+				}
+				if device.MpirsApps[appName].Next != true {
+					dat.Next = val.Next
+				}
+
+				device.MpirsApps[appName] = dat
+			} else {
+				device.MpirsApps[appName] = val
+			}
+		}
+	}
+	return device
+}
+
+func GetArrayAt[T any](array []T, index int) (T, error) {
+	var zero T
+	if index < 0 || index >= len(array) {
+		return zero, fmt.Errorf("index %d out of range [0,%d)", index, len(array))
+	}
+	return array[index], nil
+}
+
+func roundFloat32(f float32, decimals int) float32 {
+	pow := math.Pow10(decimals)
+	return float32(math.Round(float64(f)*pow) / pow)
+}
+
+func strPtr(s string) *string { return &s }
+
+////////////////////////////////////////////
+
+func HashSlice[T any](slice []T) (string, error) {
+	b, err := json.Marshal(slice)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:]), nil
 }
