@@ -24,6 +24,12 @@ func main() {
 	// Parse Flags
 	flag.Parse()
 
+	// Parse Config
+	cfg := mixmaster.ParseConfig(*configFile)
+
+	// Create Device Array
+	devices := make(map[string]*mixmaster.MixMasterInstance)
+
 	// Check if show session flag is enabled
 	if *showSessions {
 		dev, _ := mixmaster.GetDevice()
@@ -43,7 +49,22 @@ func main() {
 		m := fyne.NewMenu("MixMaster",
 			fyne.NewMenuItem("Show", func() {
 				w.Show()
+			}),
+			// Scan for devices on demand
+			fyne.NewMenuItem("Device Scan", func() {
+				// Get a list of all devices pluged into computer
+				dev, _ := mixmaster.GetDevice()
+
+				// Loop Through Devices in the config and see if they are connected to the computer
+				for deviceName, device := range cfg.Devices {
+					tempDevice, err := mixmaster.NewMixMaster(dev, device.SerialNumber)
+					if err != nil {
+						continue
+					}
+					devices[deviceName] = tempDevice
+				}
 			}))
+
 		desk.SetSystemTrayMenu(m)
 	} else {
 		// End program and alert user that the device only works on desktop
@@ -85,16 +106,10 @@ func main() {
 			panic("could not creating mpirs client")
 		}
 
-		// Parse Config
-		cfg := mixmaster.ParseConfig(*configFile)
-
-		// Create Device Array
-		devices := make(map[string]*mixmaster.MixMasterInstance)
-
 		// Get a list of all devices pluged into computer
 		dev, _ := mixmaster.GetDevice()
 
-		// Loop Through Devices
+		// Loop Through Devices in the config and see if they are connected to the computer
 		for deviceName, device := range cfg.Devices {
 			tempDevice, err := mixmaster.NewMixMaster(dev, device.SerialNumber)
 			if err != nil {
@@ -102,7 +117,6 @@ func main() {
 			}
 			devices[deviceName] = tempDevice
 		}
-		time.Sleep(10 * time.Second)
 
 		for {
 			var deviceData []*mixmaster.ParsedAudioData
