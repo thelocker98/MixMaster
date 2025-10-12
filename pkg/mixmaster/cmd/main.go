@@ -7,11 +7,10 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
-	ui "gitea.locker98.com/locker98/Mixmaster/pkg/ui"
 )
 
 // Setup CLI Flags and Default Values
@@ -26,6 +25,8 @@ func main() {
 
 	// Parse Config
 	cfg := mixmaster.ParseConfig(*configFile)
+	fyneDeviceList := binding.NewStringList()
+	fyneDeviceConnected := binding.NewBoolList()
 
 	// Create Device Array
 	devices := make(map[string]*mixmaster.MixMasterInstance)
@@ -33,6 +34,7 @@ func main() {
 	// Check if show session flag is enabled
 	if *showSessions {
 		dev, _ := mixmaster.GetDevice()
+
 		// List Devices connected to the computer
 		fmt.Println("Device List", dev)
 		return
@@ -52,17 +54,7 @@ func main() {
 			}),
 			// Scan for devices on demand
 			fyne.NewMenuItem("Device Scan", func() {
-				// Get a list of all devices pluged into computer
-				dev, _ := mixmaster.GetDevice()
-
-				// Loop Through Devices in the config and see if they are connected to the computer
-				for deviceName, device := range cfg.Devices {
-					tempDevice, err := mixmaster.NewMixMaster(dev, device.SerialNumber)
-					if err != nil {
-						continue
-					}
-					devices[deviceName] = tempDevice
-				}
+				mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices)
 			}))
 
 		desk.SetSystemTrayMenu(m)
@@ -78,18 +70,26 @@ func main() {
 		w.Hide()
 	})
 	/////////////////////////////// GUI Section   /////////////////////////////////
+	fyneDeviceList.Set([]string{})
+	fyneDeviceConnected.Set([]bool{})
+	for name, _ := range cfg.Devices {
+		fyneDeviceList.Append(name)
+		_, ok := devices[name]
+		fyneDeviceConnected.Append(ok)
+	}
+
+	w.SetContent(mixmaster.DevicePage(w, cfg, fyneDeviceList, fyneDeviceConnected, &devices))
 
 	// Connect application window to ui library
-	devicesPage := ui.NewDeviceListView(w)
+	//devicesPage := mainPage(w)
 	//settingsPage := ui.NewSettingsView()
 
 	// Create ui tabs
-	tabs := container.NewAppTabs(
-		container.NewTabItem("Devices", devicesPage),
-		//container.NewTabItem("Settings", settingsPage),
-	)
+	// tabs := container.NewAppTabs(
+	// 	container.NewTabItem("Devices", devicesPage),
+	// 	//container.NewTabItem("Settings", settingsPage),
+	// )
 	// connect ui tabs to the application window
-	w.SetContent(tabs)
 
 	///////////////////////////////////////////////////////////////////////////////
 
@@ -106,17 +106,7 @@ func main() {
 			panic("could not creating mpirs client")
 		}
 
-		// Get a list of all devices pluged into computer
-		dev, _ := mixmaster.GetDevice()
-
-		// Loop Through Devices in the config and see if they are connected to the computer
-		for deviceName, device := range cfg.Devices {
-			tempDevice, err := mixmaster.NewMixMaster(dev, device.SerialNumber)
-			if err != nil {
-				continue
-			}
-			devices[deviceName] = tempDevice
-		}
+		mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices)
 
 		for {
 			var deviceData []*mixmaster.ParsedAudioData
@@ -128,6 +118,7 @@ func main() {
 				if err != nil {
 					a.SendNotification(fyne.NewNotification("Mixmaster", "Lost Connection with Device"))
 					delete(devices, deviceName)
+					mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices)
 					continue
 				}
 				// Add Data to the device data array

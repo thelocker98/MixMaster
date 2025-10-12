@@ -9,6 +9,7 @@ import (
 	"math"
 	"time"
 
+	"fyne.io/fyne/v2/data/binding"
 	hid "github.com/sstallion/go-hid"
 	"go.bug.st/serial"
 )
@@ -297,4 +298,25 @@ func HashSlice[T any](slice []T) (string, error) {
 	}
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:]), nil
+}
+
+func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) {
+	// Get a list of all devices pluged into computer
+	dev, _ := GetDevice()
+
+	// Loop Through Devices in the config and see if they are connected to the computer
+	for deviceName, device := range cfg.Devices {
+		tempDevice, err := NewMixMaster(dev, device.SerialNumber)
+		if err != nil {
+			continue
+		}
+		(*devices)[deviceName] = tempDevice
+	}
+	deviceList.Set([]string{})
+	connectedDevices.Set([]bool{})
+	for name, _ := range cfg.Devices {
+		deviceList.Append(name)
+		_, ok := (*devices)[name]
+		connectedDevices.Append(ok)
+	}
 }
