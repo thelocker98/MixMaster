@@ -155,5 +155,6 @@ func main() {
 	}()
 
 	// Start GUI
-	a.Run()
+	//a.Run()
+	w.ShowAndRun()
 }

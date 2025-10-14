@@ -12,9 +12,22 @@ import (
 )
 
 // --- App list setup ---
-type AppEntry struct {
+type AppVolumeEntry struct {
 	NameEntry   *widget.Entry
 	NumberEntry *widget.Entry
+}
+
+type AppControlEntry struct {
+	NameEntry      *widget.Entry
+	BackEntry      *widget.Entry
+	PlayPauseEntry *widget.Entry
+	NextEntry      *widget.Entry
+}
+
+type AppControlNumber struct {
+	Back      int
+	PlayPause int
+	Next      int
 }
 
 func DevicePage(w fyne.Window, cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
@@ -82,57 +95,35 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 	deviceName.SetText(name)
 	deviceName.SetPlaceHolder("Device Name")
 
-	appEntries := []*AppEntry{}
-	appList := container.NewVBox()
-
-	refreshAppList := func() {
-		children := []fyne.CanvasObject{}
-		for _, e := range appEntries {
-			entry := e
-			row := container.NewHBox(
-				container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
-				container.New(layout.NewGridWrapLayout(fyne.NewSize(100, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
-				widget.NewButton("Remove", func() {
-					// remove from slice
-					newList := []*AppEntry{}
-					for _, a := range appEntries {
-						if a != entry {
-							newList = append(newList, a)
-						}
-					}
-					appEntries = newList
-				}),
-			)
-			children = append(children, row)
-		}
-		appList.Objects = children
-		appList.Refresh()
-	}
-
-	addAppRow := func(appName string, appNumber int) {
-		nameEntry := widget.NewEntry()
-		nameEntry.SetPlaceHolder("App Name")
-		nameEntry.SetText(appName)
-
-		numberEntry := widget.NewEntry()
-		numberEntry.SetPlaceHolder("App Number")
-		numberEntry.SetText(fmt.Sprintf("%d", appNumber))
-
-		appEntries = append(appEntries, &AppEntry{nameEntry, numberEntry})
-		refreshAppList()
-	}
+	appVolumeEntries := &[]AppVolumeEntry{}
+	appVolumeList := container.NewVBox()
+	appControlEntries := &[]AppControlEntry{}
+	appControlList := container.NewVBox()
 
 	// --- Populate existing apps ---
 	if len(device.AppVolumeControls) > 0 {
 		for appName, num := range device.AppVolumeControls {
-			addAppRow(appName, num)
+			addAppVolumeEntry(appName, &num, appVolumeEntries, appVolumeList)
 		}
 	} else {
-		addAppRow("", 0)
+		//addAppVolumeEntry("", nil, appVolumeEntries, appVolumeList)
 	}
 
-	addAppButton := widget.NewButton("Add App", func() {
-		addAppRow("", 0)
+	if len(device.AppMediaControls) > 0 {
+		for appName, num := range device.AppMediaControls {
+			fmt.Println(appName, num)
+			addAppControlEntry(appName, &num, appControlEntries, appControlList)
+		}
+	} else {
+		//addAppControlEntry("", nil, appControlEntries, appControlList)
+	}
+
+	addAppVolumeButton := widget.NewButton("Add App", func() {
+		addAppVolumeEntry("", nil, appVolumeEntries, appVolumeList)
+	})
+
+	addAppControlButton := widget.NewButton("Add App", func() {
+		addAppControlEntry("", nil, appControlEntries, appControlList)
 	})
 
 	saveButton := widget.NewButton("Save", func() {
@@ -147,7 +138,7 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 
 		// rebuild AppVolumeControls
 		newApps := make(map[string]int)
-		for _, e := range appEntries {
+		for _, e := range *appVolumeEntries {
 			if e.NameEntry.Text != "" {
 				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil {
 					newApps[e.NameEntry.Text] = num
@@ -155,9 +146,36 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 			}
 		}
 		device.AppVolumeControls = newApps
+
+		// rebuild AppMediaControls
+		newControlsApps := make(map[string]mpirsData)
+		for _, e := range *appControlEntries {
+			var mpirsData mpirsData
+			if e.NameEntry.Text != "" {
+				if num, err := strconv.Atoi(e.BackEntry.Text); err == nil && e.BackEntry.Text != "" {
+					mpirsData.Back = num
+				} else {
+					mpirsData.Back = -1
+				}
+				if num, err := strconv.Atoi(e.PlayPauseEntry.Text); err == nil && e.PlayPauseEntry.Text != "" {
+					mpirsData.PlayPause = num
+				} else {
+					mpirsData.PlayPause = -1
+				}
+				if num, err := strconv.Atoi(e.NextEntry.Text); err == nil && e.NextEntry.Text != "" {
+					mpirsData.Next = num
+				} else {
+					mpirsData.Next = -1
+				}
+
+				newControlsApps[e.NameEntry.Text] = mpirsData
+			}
+		}
+		device.AppMediaControls = newControlsApps
 		cfg.Devices[name] = device
 
 		fmt.Println("Saved device:", name)
+		fmt.Println(cfg)
 		w.SetContent(DevicePage(w, cfg, deviceList, connectedDevices, devices))
 	})
 
@@ -166,12 +184,108 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 		widget.NewLabel("Edit Device"),
 		deviceName,
 		widget.NewSeparator(),
-		widget.NewLabel("Apps:"),
-		appList,
-		addAppButton,
+		widget.NewLabel("App Volumes:"),
+		appVolumeList,
+		addAppVolumeButton,
+		widget.NewSeparator(),
+		widget.NewLabel("App Media Controls:"),
+		appControlList,
+		addAppControlButton,
 		widget.NewSeparator(),
 		saveButton,
 	)
 
 	return container.NewBorder(addBtn, nil, nil, nil, centerContent)
+}
+
+func refreshAppVolumeList(appVolumeEntries *[]AppVolumeEntry, appVolumeList *fyne.Container) {
+	children := []fyne.CanvasObject{}
+	for _, e := range *appVolumeEntries {
+		entry := e
+		row := container.NewHBox(
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
+			widget.NewButton("Remove", func() {
+				// remove from slice
+				newList := []AppVolumeEntry{}
+				for _, a := range *appVolumeEntries {
+					if a != entry {
+						newList = append(newList, a)
+					}
+				}
+				*appVolumeEntries = newList
+				refreshAppVolumeList(appVolumeEntries, appVolumeList)
+			}),
+		)
+		children = append(children, row)
+	}
+	appVolumeList.Objects = children
+	appVolumeList.Refresh()
+}
+
+func refreshAppControlList(appControlEntries *[]AppControlEntry, appControlList *fyne.Container) {
+	children := []fyne.CanvasObject{}
+	for _, e := range *appControlEntries {
+		entry := e
+		row := container.NewHBox(
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.BackEntry.MinSize().Height)), entry.BackEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.PlayPauseEntry.MinSize().Height)), entry.PlayPauseEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NextEntry.MinSize().Height)), entry.NextEntry),
+			widget.NewButton("Remove", func() {
+				// remove from slice
+				newList := []AppControlEntry{}
+				for _, a := range *appControlEntries {
+					if a != entry {
+						newList = append(newList, a)
+					}
+				}
+				*appControlEntries = newList
+				refreshAppControlList(appControlEntries, appControlList)
+			}),
+		)
+		children = append(children, row)
+	}
+	appControlList.Objects = children
+	appControlList.Refresh()
+}
+
+func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]AppVolumeEntry, appList *fyne.Container) {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("App Name")
+	nameEntry.SetText(appName)
+
+	numberEntry := widget.NewEntry()
+	numberEntry.SetPlaceHolder("App Number")
+	if appNumber != nil {
+		numberEntry.SetText(fmt.Sprintf("%d", *appNumber))
+	}
+
+	*appEntries = append(*appEntries, AppVolumeEntry{nameEntry, numberEntry})
+	refreshAppVolumeList(appEntries, appList)
+}
+
+func addAppControlEntry(appName string, controlNumbers *mpirsData, appControlEntries *[]AppControlEntry, appControlList *fyne.Container) {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("App Name")
+	nameEntry.SetText(appName)
+
+	// Back
+	backEntry := widget.NewEntry()
+	backEntry.SetPlaceHolder("Back Number")
+	// PlayPause
+	playpauseEntry := widget.NewEntry()
+	playpauseEntry.SetPlaceHolder("Play/Pause Number")
+	// Next
+	nextEntry := widget.NewEntry()
+	nextEntry.SetPlaceHolder("Next Number")
+
+	if controlNumbers != nil {
+		backEntry.SetText(fmt.Sprintf("%d", controlNumbers.Back))
+		playpauseEntry.SetText(fmt.Sprintf("%d", controlNumbers.PlayPause))
+		nextEntry.SetText(fmt.Sprintf("%d", controlNumbers.Next))
+	}
+
+	*appControlEntries = append(*appControlEntries, AppControlEntry{nameEntry, backEntry, playpauseEntry, nextEntry})
+	refreshAppControlList(appControlEntries, appControlList)
 }
