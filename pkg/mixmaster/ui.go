@@ -12,7 +12,7 @@ import (
 )
 
 // --- App list setup ---
-type AppVolumeEntry struct {
+type VolumeEntry struct {
 	NameEntry   *widget.Entry
 	NumberEntry *widget.Entry
 }
@@ -95,8 +95,10 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 	deviceName.SetText(name)
 	deviceName.SetPlaceHolder("Device Name")
 
-	appVolumeEntries := &[]AppVolumeEntry{}
+	appVolumeEntries := &[]VolumeEntry{}
 	appVolumeList := container.NewVBox()
+	masterVolumeEntries := &[]VolumeEntry{}
+	masterVolumeList := container.NewVBox()
 	appControlEntries := &[]AppControlEntry{}
 	appControlList := container.NewVBox()
 
@@ -105,24 +107,26 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 		for appName, num := range device.AppVolumeControls {
 			addAppVolumeEntry(appName, &num, appVolumeEntries, appVolumeList)
 		}
-	} else {
-		//addAppVolumeEntry("", nil, appVolumeEntries, appVolumeList)
 	}
-
+	if len(device.MasterVolumeControls) > 0 {
+		for appName, num := range device.MasterVolumeControls {
+			addAppVolumeEntry(appName, &num, masterVolumeEntries, masterVolumeList)
+		}
+	}
 	if len(device.AppMediaControls) > 0 {
 		for appName, num := range device.AppMediaControls {
 			fmt.Println(appName, num)
 			addAppControlEntry(appName, &num, appControlEntries, appControlList)
 		}
-	} else {
-		//addAppControlEntry("", nil, appControlEntries, appControlList)
 	}
 
-	addAppVolumeButton := widget.NewButton("Add App", func() {
+	addAppVolumeButton := widget.NewButton("Add App Volume", func() {
 		addAppVolumeEntry("", nil, appVolumeEntries, appVolumeList)
 	})
-
-	addAppControlButton := widget.NewButton("Add App", func() {
+	addMasterVolumeButton := widget.NewButton("Add Master Output Volume", func() {
+		addAppVolumeEntry("", nil, masterVolumeEntries, masterVolumeList)
+	})
+	addAppControlButton := widget.NewButton("Add Media Controls", func() {
 		addAppControlEntry("", nil, appControlEntries, appControlList)
 	})
 
@@ -146,6 +150,17 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 			}
 		}
 		device.AppVolumeControls = newApps
+
+		// rebuild MasterVolumeControls
+		newMasterVolume := make(map[string]int)
+		for _, e := range *masterVolumeEntries {
+			if e.NameEntry.Text != "" {
+				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil {
+					newMasterVolume[e.NameEntry.Text] = num
+				}
+			}
+		}
+		device.MasterVolumeControls = newMasterVolume
 
 		// rebuild AppMediaControls
 		newControlsApps := make(map[string]mpirsData)
@@ -188,6 +203,10 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 		appVolumeList,
 		addAppVolumeButton,
 		widget.NewSeparator(),
+		widget.NewLabel("Master Output Volume Controls:"),
+		masterVolumeList,
+		addMasterVolumeButton,
+		widget.NewSeparator(),
 		widget.NewLabel("App Media Controls:"),
 		appControlList,
 		addAppControlButton,
@@ -198,7 +217,7 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 	return container.NewBorder(addBtn, nil, nil, nil, centerContent)
 }
 
-func refreshAppVolumeList(appVolumeEntries *[]AppVolumeEntry, appVolumeList *fyne.Container) {
+func refreshAppVolumeList(appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.Container) {
 	children := []fyne.CanvasObject{}
 	for _, e := range *appVolumeEntries {
 		entry := e
@@ -207,7 +226,7 @@ func refreshAppVolumeList(appVolumeEntries *[]AppVolumeEntry, appVolumeList *fyn
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
 			widget.NewButton("Remove", func() {
 				// remove from slice
-				newList := []AppVolumeEntry{}
+				newList := []VolumeEntry{}
 				for _, a := range *appVolumeEntries {
 					if a != entry {
 						newList = append(newList, a)
@@ -221,6 +240,31 @@ func refreshAppVolumeList(appVolumeEntries *[]AppVolumeEntry, appVolumeList *fyn
 	}
 	appVolumeList.Objects = children
 	appVolumeList.Refresh()
+}
+
+func refreshMasterVolumeList(masterVolumeEntries *[]VolumeEntry, masterVolumeList *fyne.Container) {
+	children := []fyne.CanvasObject{}
+	for _, e := range *masterVolumeEntries {
+		entry := e
+		row := container.NewHBox(
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
+			widget.NewButton("Remove", func() {
+				// remove from slice
+				newList := []VolumeEntry{}
+				for _, a := range *masterVolumeEntries {
+					if a != entry {
+						newList = append(newList, a)
+					}
+				}
+				*masterVolumeEntries = newList
+				refreshAppVolumeList(masterVolumeEntries, masterVolumeList)
+			}),
+		)
+		children = append(children, row)
+	}
+	masterVolumeList.Objects = children
+	masterVolumeList.Refresh()
 }
 
 func refreshAppControlList(appControlEntries *[]AppControlEntry, appControlList *fyne.Container) {
@@ -250,7 +294,7 @@ func refreshAppControlList(appControlEntries *[]AppControlEntry, appControlList 
 	appControlList.Refresh()
 }
 
-func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]AppVolumeEntry, appList *fyne.Container) {
+func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]VolumeEntry, appList *fyne.Container) {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("App Name")
 	nameEntry.SetText(appName)
@@ -261,7 +305,7 @@ func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]AppVolumeEn
 		numberEntry.SetText(fmt.Sprintf("%d", *appNumber))
 	}
 
-	*appEntries = append(*appEntries, AppVolumeEntry{nameEntry, numberEntry})
+	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberEntry})
 	refreshAppVolumeList(appEntries, appList)
 }
 
@@ -288,4 +332,19 @@ func addAppControlEntry(appName string, controlNumbers *mpirsData, appControlEnt
 
 	*appControlEntries = append(*appControlEntries, AppControlEntry{nameEntry, backEntry, playpauseEntry, nextEntry})
 	refreshAppControlList(appControlEntries, appControlList)
+}
+
+func addMasterVolumeEntry(masterName string, masterNumber *int, masterEntries *[]VolumeEntry, appList *fyne.Container) {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Output Name")
+	nameEntry.SetText(masterName)
+
+	numberEntry := widget.NewEntry()
+	numberEntry.SetPlaceHolder("Slider Number")
+	if masterNumber != nil {
+		numberEntry.SetText(fmt.Sprintf("%d", *masterNumber))
+	}
+
+	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry})
+	refreshAppVolumeList(masterEntries, appList)
 }
