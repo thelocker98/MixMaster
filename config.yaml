@@ -1,29 +1,25 @@
 Devices:
-  Custom Audio Device:
-    pulse-app-slidders:
-      brave: 1
-
-    app-media-control:
-      brave:
-        next: 3
-        back: 1
-        playpause: 2
-
-    pulse-master-slidders:
-      master: 2
-
-    invert_slidders: true
-    serialNumber: 10051537
-
-  Serial Audio Device:
-    pulse-app-slidders:
-      brave: 1
-      unmapped: 2
-      vivaldi-bin: 3
-
-    pulse-master-slidders:
-      master: 4
-
-    # set this to true if you want the controls inverted (i.e. top is 0%, bottom is 100%)
-    invert_slidders: false
-    serialNumber: 10051642
+    MixMaster 1:
+        pulse-app-slidders:
+            brave: 0
+            unmapped: 1
+            vivaldi-bin: 2
+        pulse-master-slidders:
+            master: 3
+        serialNumber: 10051642
+    MixMaster Pro 4:
+        pulse-app-slidders:
+            brave: 0
+        pulse-master-slidders:
+            master: 1
+        app-media-control:
+            brave:
+                back: 0
+                playpause: 1
+                next: 2
+            t:
+                back: -1
+                playpause: -1
+                next: -1
+        invert_slidders: true
+        serialNumber: 10051537

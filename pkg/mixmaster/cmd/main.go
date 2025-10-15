@@ -23,8 +23,10 @@ func main() {
 	// Parse Flags
 	flag.Parse()
 
+	configPath := configFile
+
 	// Parse Config
-	cfg := mixmaster.ParseConfig(*configFile)
+	cfg := mixmaster.ParseConfig(*configPath)
 	fyneDeviceList := binding.NewStringList()
 	fyneDeviceConnected := binding.NewBoolList()
 
@@ -78,7 +80,7 @@ func main() {
 		fyneDeviceConnected.Append(ok)
 	}
 
-	w.SetContent(mixmaster.DevicePage(w, cfg, fyneDeviceList, fyneDeviceConnected, &devices))
+	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices))
 
 	// Connect application window to ui library
 	//devicesPage := mainPage(w)

@@ -30,7 +30,7 @@ type AppControlNumber struct {
 	Next      int
 }
 
-func DevicePage(w fyne.Window, cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
+func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
 	// Create a container to hold buttons for each device
 	deviceButtons := container.NewVBox()
 
@@ -48,7 +48,7 @@ func DevicePage(w fyne.Window, cfg *Config, deviceList binding.StringList, conne
 			btn := widget.NewButton(fmt.Sprintf("%s - %s", name, status), func() {
 				fmt.Println("Clicked:", name)
 
-				w.SetContent(EditorPage(w, cfg, name, deviceList, connectedDevices, devices))
+				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices))
 			})
 
 			deviceButtons.Add(btn)
@@ -56,6 +56,8 @@ func DevicePage(w fyne.Window, cfg *Config, deviceList binding.StringList, conne
 
 		deviceButtons.Refresh()
 	}
+	// Initial population
+	updateDeviceButtons()
 
 	// Listen for changes in the device list or connection status
 	deviceList.AddListener(binding.NewDataListener(func() {
@@ -64,9 +66,6 @@ func DevicePage(w fyne.Window, cfg *Config, deviceList binding.StringList, conne
 	connectedDevices.AddListener(binding.NewDataListener(func() {
 		updateDeviceButtons()
 	}))
-
-	// Initial population
-	updateDeviceButtons()
 
 	addBtn := widget.NewButton("Add Device", func() {
 		fmt.Println("Add device clicked")
@@ -79,16 +78,16 @@ func DevicePage(w fyne.Window, cfg *Config, deviceList binding.StringList, conne
 	return container.NewBorder(nil, addBtn, nil, deviceScan, deviceButtons)
 }
 
-func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
-	addBtn := widget.NewButton("Back", func() {
+func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
+	backBtn := widget.NewButton("Back", func() {
 		fmt.Println("Back clicked")
-		w.SetContent(DevicePage(w, cfg, deviceList, connectedDevices, devices))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
 	})
 
 	// --- Get the device from config ---
 	device, ok := cfg.Devices[name]
 	if !ok {
-		return container.NewBorder(addBtn, nil, nil, nil, container.NewCenter(widget.NewLabel("No device selected")))
+		return container.NewBorder(backBtn, nil, nil, nil, container.NewCenter(widget.NewLabel("No device selected")))
 	}
 
 	deviceName := widget.NewEntry()
@@ -141,22 +140,26 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 		}
 
 		// rebuild AppVolumeControls
-		newApps := make(map[string]int)
+		newAppVolume := make(map[string]int)
 		for _, e := range *appVolumeEntries {
 			if e.NameEntry.Text != "" {
-				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil {
-					newApps[e.NameEntry.Text] = num
+				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil && e.NameEntry.Text != "" {
+					newAppVolume[e.NameEntry.Text] = num
+				} else {
+					newAppVolume[e.NameEntry.Text] = -1
 				}
 			}
 		}
-		device.AppVolumeControls = newApps
+		device.AppVolumeControls = newAppVolume
 
 		// rebuild MasterVolumeControls
 		newMasterVolume := make(map[string]int)
 		for _, e := range *masterVolumeEntries {
 			if e.NameEntry.Text != "" {
-				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil {
+				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil && e.NameEntry.Text != "" {
 					newMasterVolume[e.NameEntry.Text] = num
+				} else {
+					newMasterVolume[e.NameEntry.Text] = -1
 				}
 			}
 		}
@@ -189,9 +192,9 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 		device.AppMediaControls = newControlsApps
 		cfg.Devices[name] = device
 
-		fmt.Println("Saved device:", name)
-		fmt.Println(cfg)
-		w.SetContent(DevicePage(w, cfg, deviceList, connectedDevices, devices))
+		cfg.SaveConfig(configPath)
+		ScanForDevices(cfg, deviceList, connectedDevices, devices)
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
 	})
 
 	// --- Center content ---
@@ -214,7 +217,7 @@ func EditorPage(w fyne.Window, cfg *Config, name string, deviceList binding.Stri
 		saveButton,
 	)
 
-	return container.NewBorder(addBtn, nil, nil, nil, centerContent)
+	return container.NewBorder(backBtn, nil, nil, nil, centerContent)
 }
 
 func refreshAppVolumeList(appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.Container) {
@@ -302,7 +305,9 @@ func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]VolumeEntry
 	numberEntry := widget.NewEntry()
 	numberEntry.SetPlaceHolder("App Number")
 	if appNumber != nil {
-		numberEntry.SetText(fmt.Sprintf("%d", *appNumber))
+		if *appNumber != -1 {
+			numberEntry.SetText(fmt.Sprintf("%d", *appNumber))
+		}
 	}
 
 	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberEntry})
@@ -325,9 +330,15 @@ func addAppControlEntry(appName string, controlNumbers *mpirsData, appControlEnt
 	nextEntry.SetPlaceHolder("Next Number")
 
 	if controlNumbers != nil {
-		backEntry.SetText(fmt.Sprintf("%d", controlNumbers.Back))
-		playpauseEntry.SetText(fmt.Sprintf("%d", controlNumbers.PlayPause))
-		nextEntry.SetText(fmt.Sprintf("%d", controlNumbers.Next))
+		if controlNumbers.Back != -1 {
+			backEntry.SetText(fmt.Sprintf("%d", controlNumbers.Back))
+		}
+		if controlNumbers.PlayPause != -1 {
+			playpauseEntry.SetText(fmt.Sprintf("%d", controlNumbers.PlayPause))
+		}
+		if controlNumbers.Next != -1 {
+			nextEntry.SetText(fmt.Sprintf("%d", controlNumbers.Next))
+		}
 	}
 
 	*appControlEntries = append(*appControlEntries, AppControlEntry{nameEntry, backEntry, playpauseEntry, nextEntry})
@@ -342,7 +353,9 @@ func addMasterVolumeEntry(masterName string, masterNumber *int, masterEntries *[
 	numberEntry := widget.NewEntry()
 	numberEntry.SetPlaceHolder("Slider Number")
 	if masterNumber != nil {
-		numberEntry.SetText(fmt.Sprintf("%d", *masterNumber))
+		if *masterNumber != -1 {
+			numberEntry.SetText(fmt.Sprintf("%d", *masterNumber))
+		}
 	}
 
 	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry})

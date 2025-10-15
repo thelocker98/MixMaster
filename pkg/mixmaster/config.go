@@ -44,24 +44,21 @@ func ParseConfig(path string) *Config {
 		log.Fatalf("error parsing yaml: %v", err)
 	}
 
-	// go through and minus 1 from all the values. this allows the software to ignore any filds that are not populated
-	// because a zero is equivilate to a nil when the parse is look through the yaml and it gives it a value of -1 which is ignored
-	for deviceName, val := range cfg.Devices {
-		for name, data := range val.AppVolumeControls {
-			val.AppVolumeControls[name] = data - 1
-		}
-		for name, data := range val.AppMediaControls {
-			data.Next--
-			data.Back--
-			data.PlayPause--
-			val.AppMediaControls[name] = data
-		}
-		for name, data := range val.MasterVolumeControls {
-			data--
-			val.MasterVolumeControls[name] = data
-		}
-		cfg.Devices[deviceName] = val
+	return &cfg
+}
+
+func (cfg *Config) SaveConfig(path *string) error {
+	// parse config struct into a yaml file
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
 	}
 
-	return &cfg
+	// Write to file
+	err = os.WriteFile(*path, data, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
