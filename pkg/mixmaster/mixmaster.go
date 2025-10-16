@@ -13,7 +13,7 @@ type MixMasterInstance struct {
 	Serial serial.Port
 }
 
-func NewMixMaster(dev *Device, serialNum int64) (*MixMasterInstance, error) {
+func NewMixMaster(dev *Device, serialNum string) (*MixMasterInstance, error) {
 	// Check if hid device is specified
 	if devicePath, ok := dev.HidDev[serialNum]; ok {
 		d, err := hid.OpenPath(devicePath)
@@ -57,32 +57,3 @@ func (dev MixMasterInstance) Pull(cfg *DeviceConfig) (*ParsedAudioData, error) {
 		return nil, errors.New("No Device")
 	}
 }
-
-// // Get pulse audio sessions
-// sessions, err := client.GetAudioSessions()
-// if err != nil {
-// 	// could not get pulse audio sessions
-// 	continue
-// }
-
-// // Get mpris sessions
-// players, err := mpris.ConnectToApps(sessions)
-// if err != nil {
-// 	// could not get app media controls
-// 	continue
-// }
-
-// // Check if the hash of the current volume match the hash of the last volume.
-// // If the hash matchs do not change volume
-// if hash, _ := HashSlice(deviceData.Volume); hash != volumeHash {
-// 	volumeHash, _ = HashSlice(deviceData.Volume)
-// 	sessions.ChangeAppVolume(cfg, deviceData.Volume, client)
-// 	sessions.ChangeMasterVolume(cfg, deviceData.Volume, client)
-// }
-
-// // Check if the hash of the current media state match the hash of the last media state.
-// // If the hash matchs do not change media state
-// if hash, _ := HashSlice(deviceData.Button); hash != buttonHash {
-// 	buttonHash, _ = HashSlice(deviceData.Button)
-// 	players.PausePlay(cfg, deviceData)
-// }

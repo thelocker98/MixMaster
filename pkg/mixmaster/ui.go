@@ -69,6 +69,7 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 
 	addBtn := widget.NewButton("Add Device", func() {
 		fmt.Println("Add device clicked")
+		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices))
 	})
 
 	deviceScan := widget.NewButton("Scan for Devices", func() {
@@ -87,12 +88,17 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	// --- Get the device from config ---
 	device, ok := cfg.Devices[name]
 	if !ok {
-		return container.NewBorder(backBtn, nil, nil, nil, container.NewCenter(widget.NewLabel("No device selected")))
+		device = DeviceConfig{}
+		backBtn.Text = "Cancel Device Creation"
 	}
 
 	deviceName := widget.NewEntry()
 	deviceName.SetText(name)
 	deviceName.SetPlaceHolder("Device Name")
+
+	deviceSerial := widget.NewEntry()
+	deviceSerial.SetText(string(device.SerialNumber))
+	deviceSerial.SetPlaceHolder("Device Serial Number")
 
 	appVolumeEntries := &[]VolumeEntry{}
 	appVolumeList := container.NewVBox()
@@ -109,7 +115,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	}
 	if len(device.MasterVolumeControls) > 0 {
 		for appName, num := range device.MasterVolumeControls {
-			addAppVolumeEntry(appName, &num, masterVolumeEntries, masterVolumeList)
+			addMasterVolumeEntry(appName, &num, masterVolumeEntries, masterVolumeList)
 		}
 	}
 	if len(device.AppMediaControls) > 0 {
@@ -190,9 +196,16 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 			}
 		}
 		device.AppMediaControls = newControlsApps
+		device.SerialNumber = deviceSerial.Text
 		cfg.Devices[name] = device
 
 		cfg.SaveConfig(configPath)
+		ScanForDevices(cfg, deviceList, connectedDevices, devices)
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+	})
+
+	removeDeviceButton := widget.NewButton("Delete Device", func() {
+		delete(cfg.Devices, name)
 		ScanForDevices(cfg, deviceList, connectedDevices, devices)
 		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
 	})
@@ -201,6 +214,8 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	centerContent := container.NewVBox(
 		widget.NewLabel("Edit Device"),
 		deviceName,
+		widget.NewLabel("Serial Number"),
+		deviceSerial,
 		widget.NewSeparator(),
 		widget.NewLabel("App Volumes:"),
 		appVolumeList,
@@ -215,6 +230,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		addAppControlButton,
 		widget.NewSeparator(),
 		saveButton,
+		removeDeviceButton,
 	)
 
 	return container.NewBorder(backBtn, nil, nil, nil, centerContent)
@@ -261,7 +277,7 @@ func refreshMasterVolumeList(masterVolumeEntries *[]VolumeEntry, masterVolumeLis
 					}
 				}
 				*masterVolumeEntries = newList
-				refreshAppVolumeList(masterVolumeEntries, masterVolumeList)
+				refreshMasterVolumeList(masterVolumeEntries, masterVolumeList)
 			}),
 		)
 		children = append(children, row)
@@ -359,5 +375,5 @@ func addMasterVolumeEntry(masterName string, masterNumber *int, masterEntries *[
 	}
 
 	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry})
-	refreshAppVolumeList(masterEntries, appList)
+	refreshMasterVolumeList(masterEntries, appList)
 }

@@ -7,37 +7,7 @@ uint8_t rawhidData[PACKET_SIZE];
 String jsonData;
 
 
-// Serial Number Generator
-unsigned long makeSerial() {
-  // Example: 2025-10-04 15:32:10 → 5100432
-  const char* date = __DATE__;  // "Oct  4 2025"
-  const char* time = __TIME__;  // "15:32:10"
-
-  // Convert parts
-  int month =
-    (date[0] == 'J' && date[1] == 'a') ? 1 : (date[0] == 'F')                   ? 2
-                                           : (date[0] == 'M' && date[2] == 'r') ? 3
-                                           : (date[0] == 'A' && date[1] == 'p') ? 4
-                                           : (date[0] == 'M' && date[2] == 'y') ? 5
-                                           : (date[0] == 'J' && date[2] == 'n') ? 6
-                                           : (date[0] == 'J' && date[2] == 'l') ? 7
-                                           : (date[0] == 'A' && date[1] == 'u') ? 8
-                                           : (date[0] == 'S')                   ? 9
-                                           : (date[0] == 'O')                   ? 10
-                                           : (date[0] == 'N')                   ? 11
-                                                                                : 12;
-
-  int day = ((date[4] == ' ') ? 0 : (date[4] - '0')) * 10 + (date[5] - '0');
-  int hour = (time[0] - '0') * 10 + (time[1] - '0');
-  int minute = (time[3] - '0') * 10 + (time[4] - '0');
-  int second = (time[6] - '0') * 10 + (time[7] - '0');
-
-  // Combine into a compact unique number (month*1000000 + day*10000 + hour*100 + minute)
-  return (month * 1000000UL) + (day * 10000UL) + (hour * 100UL) + minute;
-}
-
-
-const unsigned long deviceSerial = makeSerial();
+const String deviceSerial = "H0S02B03T0001";
 
 
 // --- Analog Sliders ---
@@ -151,7 +121,7 @@ void updateButtons() {
 
 String createJsonPacket() {
   String data;
-  data = "{\"id\":" + String(deviceSerial) + ", ";
+  data = "{\"id\":\"" + String(deviceSerial) + "\", ";
   data += "\"s\":[";
   for (int i = 0; i < NUM_SLIDERS; i++) {
     data += analogSliderValues[i] / 4;  // scale 0–1023 → 0–255
@@ -170,4 +140,3 @@ String createJsonPacket() {
   Serial.println(data);
   return data;
 }
-

@@ -20,8 +20,8 @@ type DeviceConfig struct {
 	MasterVolumeControls map[string]int       `yaml:"pulse-master-slidders,omitempty"`
 	AppMediaControls     map[string]mpirsData `yaml:"app-media-control,omitempty"`
 
-	SlidderInvert bool  `yaml:"invert_slidders,omitempty"`
-	SerialNumber  int64 `yaml:"serialNumber"`
+	SlidderInvert bool   `yaml:"invert_slidders,omitempty"`
+	SerialNumber  string `yaml:"serialNumber"`
 }
 
 // This struct stores all the individual devices and groups togeather all the previous structs into a map

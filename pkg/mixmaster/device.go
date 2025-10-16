@@ -15,29 +15,28 @@ import (
 )
 
 type Device struct {
-	HidDev    map[int64]string
-	SerialDev map[int64]string
+	HidDev    map[string]string
+	SerialDev map[string]string
 }
 
 type DeviceData struct {
-	Id     int64
+	Id     string
 	Volume []float32
 	Button []bool
 	err    error
 }
 type arduinoMsg struct {
-	Id       int64 `json:"id"`
-	Slidders []int `json:"s"`
-	Buttons  []int `json:"b"`
+	Id       string `json:"id"`
+	Slidders []int  `json:"s"`
+	Buttons  []int  `json:"b"`
 }
 
 func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
-
 	var msg arduinoMsg
 	err := json.Unmarshal(buf, &msg)
 	if err != nil {
 		return &DeviceData{
-			Id:     0,
+			Id:     "",
 			Volume: nil,
 			Button: nil,
 			err:    err,
@@ -94,8 +93,8 @@ func ListSerialDevices() []string {
 
 func GetDevice() (*Device, error) {
 	deviceList := Device{
-		HidDev:    make(map[int64]string),
-		SerialDev: make(map[int64]string),
+		HidDev:    make(map[string]string),
+		SerialDev: make(map[string]string),
 	}
 
 	hidDeviceList := ListHIDDevices()
@@ -303,6 +302,8 @@ func HashSlice[T any](slice []T) (string, error) {
 func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) {
 	// Get a list of all devices pluged into computer
 	dev, _ := GetDevice()
+
+	fmt.Println(dev)
 
 	// Loop Through Devices in the config and see if they are connected to the computer
 	for deviceName, device := range cfg.Devices {
