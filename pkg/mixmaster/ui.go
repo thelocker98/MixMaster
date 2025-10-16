@@ -5,9 +5,12 @@ import (
 	"strconv"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -31,7 +34,16 @@ type AppControlNumber struct {
 }
 
 func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
-	// Create a container to hold buttons for each device
+
+	title := widget.NewLabelWithStyle(
+		"Connected Devices",
+		fyne.TextAlignCenter,
+		fyne.TextStyle{Bold: true},
+	)
+
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	title.Alignment = fyne.TextAlignCenter
+
 	deviceButtons := container.NewVBox()
 
 	updateDeviceButtons := func() {
@@ -39,44 +51,66 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 
 		names, _ := deviceList.Get()
 		for i, name := range names {
-			status := "disconnected"
+			status := "Disconnected"
+			color := theme.ColorNameError
+
 			if val, _ := connectedDevices.GetValue(i); val {
-				status = "connected"
+				status = "Connected"
+				color = theme.ColorNameSuccess
 			}
 
-			// Create a button for each device
-			btn := widget.NewButton(fmt.Sprintf("%s - %s", name, status), func() {
-				fmt.Println("Clicked:", name)
+			statusLabel := canvas.NewText(status, theme.Color(color))
+			statusLabel.Alignment = fyne.TextAlignTrailing
 
+			btn := widget.NewButton(name, func() {
+				fmt.Println("Clicked:", name)
 				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices))
 			})
 
-			deviceButtons.Add(btn)
+			// Each device row as a horizontal box
+			row := container.NewBorder(nil, nil, btn, statusLabel)
+			deviceButtons.Add(container.NewVBox(row, widget.NewSeparator()))
 		}
 
 		deviceButtons.Refresh()
 	}
-	// Initial population
+
 	updateDeviceButtons()
 
-	// Listen for changes in the device list or connection status
-	deviceList.AddListener(binding.NewDataListener(func() {
-		updateDeviceButtons()
-	}))
-	connectedDevices.AddListener(binding.NewDataListener(func() {
-		updateDeviceButtons()
-	}))
+	deviceList.AddListener(binding.NewDataListener(func() { updateDeviceButtons() }))
+	connectedDevices.AddListener(binding.NewDataListener(func() { updateDeviceButtons() }))
 
-	addBtn := widget.NewButton("Add Device", func() {
-		fmt.Println("Add device clicked")
+	addBtn := widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
 		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices))
 	})
 
-	deviceScan := widget.NewButton("Scan for Devices", func() {
+	scanBtn := widget.NewButtonWithIcon("Scan Devices", theme.ViewRefreshIcon(), func() {
 		ScanForDevices(cfg, deviceList, connectedDevices, devices)
 	})
 
-	return container.NewBorder(nil, addBtn, nil, deviceScan, deviceButtons)
+	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {
+		w.SetContent(SettingsPage(w, cfg, configPath, deviceList, connectedDevices, devices))
+	})
+
+	buttonBar := container.NewHBox(
+		settingsBtn,
+		layout.NewSpacer(),
+		addBtn,
+		scanBtn,
+	)
+
+	scrollableList := container.NewVScroll(deviceButtons)
+	scrollableList.SetMinSize(fyne.NewSize(300, 300))
+
+	content := container.NewBorder(
+		title,
+		buttonBar,
+		nil,
+		nil,
+		scrollableList,
+	)
+
+	return content
 }
 
 func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
@@ -205,9 +239,25 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	})
 
 	removeDeviceButton := widget.NewButton("Delete Device", func() {
-		delete(cfg.Devices, name)
-		ScanForDevices(cfg, deviceList, connectedDevices, devices)
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+		// Create a custom confirmation dialog
+		content := widget.NewLabel("Are you sure you want to delete this device?")
+
+		d := dialog.NewCustomConfirm(
+			"Confirm Deletion",
+			"Cancel",
+			"Delete",
+			content,
+			func(confirmed bool) {
+				if !confirmed {
+					delete(cfg.Devices, name)
+					ScanForDevices(cfg, deviceList, connectedDevices, devices)
+					cfg.SaveConfig(configPath)
+					w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+				}
+			},
+			w,
+		)
+		d.Show()
 	})
 
 	// --- Center content ---
@@ -234,6 +284,38 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	)
 
 	return container.NewBorder(backBtn, nil, nil, nil, centerContent)
+}
+
+func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
+	title := widget.NewLabelWithStyle("Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	saveBtn := widget.NewButtonWithIcon("Save", theme.ConfirmIcon(), func() {
+		cfg.SaveConfig(configPath)
+		dialog.ShowInformation("Saved", "Settings have been saved.", w)
+	})
+
+	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+	})
+
+	// Example setting fields
+	themeToggle := widget.NewCheck("Dark Mode", func(value bool) {
+		if value {
+			fyne.CurrentApp().Settings().SetTheme(theme.DarkTheme())
+		} else {
+			fyne.CurrentApp().Settings().SetTheme(theme.LightTheme())
+		}
+	})
+
+	content := container.NewVBox(
+		title,
+		widget.NewSeparator(),
+		themeToggle,
+		layout.NewSpacer(),
+		container.NewHBox(layout.NewSpacer(), backBtn, saveBtn),
+	)
+
+	return container.NewPadded(content)
 }
 
 func refreshAppVolumeList(appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.Container) {

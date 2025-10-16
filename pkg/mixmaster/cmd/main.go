@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
 )
@@ -63,6 +64,14 @@ func main() {
 	} else {
 		// End program and alert user that the device only works on desktop
 		panic("This application only works on desktop devices")
+	}
+
+	if cfg.App.Theme == "dark" {
+		fyne.CurrentApp().Settings().SetTheme(theme.DarkTheme())
+	} else if cfg.App.Theme == "light" {
+		fyne.CurrentApp().Settings().SetTheme(theme.LightTheme())
+	} else {
+		fyne.CurrentApp().Settings().SetTheme(theme.DefaultTheme())
 	}
 
 	// Set window name

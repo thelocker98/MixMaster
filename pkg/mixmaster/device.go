@@ -303,8 +303,6 @@ func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices
 	// Get a list of all devices pluged into computer
 	dev, _ := GetDevice()
 
-	fmt.Println(dev)
-
 	// Loop Through Devices in the config and see if they are connected to the computer
 	for deviceName, device := range cfg.Devices {
 		tempDevice, err := NewMixMaster(dev, device.SerialNumber)

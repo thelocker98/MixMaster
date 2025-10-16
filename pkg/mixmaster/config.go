@@ -23,10 +23,15 @@ type DeviceConfig struct {
 	SlidderInvert bool   `yaml:"invert_slidders,omitempty"`
 	SerialNumber  string `yaml:"serialNumber"`
 }
+type AppConfig struct {
+	Theme         string `yaml:"theme"`
+	Notifications bool   `yaml:"notifications"`
+}
 
 // This struct stores all the individual devices and groups togeather all the previous structs into a map
 type Config struct {
 	Devices map[string]DeviceConfig `yaml:"Devices"`
+	App     AppConfig
 }
 
 // This function parses the yaml config and puts it in to a struct that the application can understand
