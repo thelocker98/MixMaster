@@ -14,13 +14,15 @@ Devices:
             master: 1
         app-media-control:
             brave:
-                back: 0
+                back: -1
                 playpause: 1
-                next: 2
+                next: -1
+            vivialdi:
+                back: -1
+                playpause: 2
+                next: -1
         invert_slidders: true
         serialNumber: H0S02B03T0001
-    test:
-        serialNumber: ""
 app:
     theme: ""
     notifications: false

@@ -20,6 +20,8 @@ var (
 	showSessions = flag.Bool("show-sessions", false, "Enable debug mode")
 )
 
+var dat *mixmaster.ParsedAudioData
+
 func main() {
 	// Parse Flags
 	flag.Parse()
@@ -89,20 +91,7 @@ func main() {
 		fyneDeviceConnected.Append(ok)
 	}
 
-	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices))
-
-	// Connect application window to ui library
-	//devicesPage := mainPage(w)
-	//settingsPage := ui.NewSettingsView()
-
-	// Create ui tabs
-	// tabs := container.NewAppTabs(
-	// 	container.NewTabItem("Devices", devicesPage),
-	// 	//container.NewTabItem("Settings", settingsPage),
-	// )
-	// connect ui tabs to the application window
-
-	///////////////////////////////////////////////////////////////////////////////
+	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, dat))
 
 	go func() {
 		// Create Pulse Client
@@ -137,7 +126,7 @@ func main() {
 			}
 
 			// Join all the different devices together
-			dat := mixmaster.JoinDeviceData(deviceData)
+			dat = mixmaster.JoinDeviceData(deviceData)
 
 			// Get pulse audio sessions
 			pulseSessions, err := pulseClient.GetPulseSessions()

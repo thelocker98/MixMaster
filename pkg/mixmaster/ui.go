@@ -2,6 +2,7 @@ package mixmaster
 
 import (
 	"fmt"
+	"image/color"
 	"strconv"
 
 	"fyne.io/fyne/v2"
@@ -18,6 +19,7 @@ import (
 type VolumeEntry struct {
 	NameEntry   *widget.Entry
 	NumberEntry *widget.Entry
+	LevelWidget *widget.ProgressBar
 }
 
 type AppControlEntry struct {
@@ -33,14 +35,9 @@ type AppControlNumber struct {
 	Next      int
 }
 
-func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
-
-	title := widget.NewLabelWithStyle(
-		"Connected Devices",
-		fyne.TextAlignCenter,
-		fyne.TextStyle{Bold: true},
-	)
-
+func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, data *ParsedAudioData) fyne.CanvasObject {
+	title := canvas.NewText("MixMaster", color.White)
+	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	title.Alignment = fyne.TextAlignCenter
 
@@ -63,13 +60,16 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 			statusLabel.Alignment = fyne.TextAlignTrailing
 
 			btn := widget.NewButton(name, func() {
-				fmt.Println("Clicked:", name)
-				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices))
+				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices, data))
 			})
 
 			// Each device row as a horizontal box
-			row := container.NewBorder(nil, nil, btn, statusLabel)
-			deviceButtons.Add(container.NewVBox(row, widget.NewSeparator()))
+			row := container.NewHBox(layout.NewSpacer(), btn, statusLabel, layout.NewSpacer())
+
+			fixedblock := container.NewCenter(row)
+			fixedblock.Resize(fyne.NewSize(100, 200))
+
+			deviceButtons.Add(fixedblock)
 		}
 
 		deviceButtons.Refresh()
@@ -81,7 +81,7 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	connectedDevices.AddListener(binding.NewDataListener(func() { updateDeviceButtons() }))
 
 	addBtn := widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
-		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices))
+		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices, data))
 	})
 
 	scanBtn := widget.NewButtonWithIcon("Scan Devices", theme.ViewRefreshIcon(), func() {
@@ -89,22 +89,20 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	})
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {
-		w.SetContent(SettingsPage(w, cfg, configPath, deviceList, connectedDevices, devices))
+		w.SetContent(SettingsPage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
 	})
 
-	buttonBar := container.NewHBox(
-		settingsBtn,
-		layout.NewSpacer(),
-		addBtn,
-		scanBtn,
-	)
+	deviceBoxTitle := canvas.NewText("Devices", color.White)
+	deviceBoxTitle.TextSize = 24
+	deviceBoxTitle.TextStyle = fyne.TextStyle{Bold: true}
+	deviceBoxTitle.Alignment = fyne.TextAlignCenter
 
-	scrollableList := container.NewVScroll(deviceButtons)
+	scrollableList := container.NewVScroll(container.NewVBox(layout.NewSpacer(), deviceBoxTitle, deviceButtons, layout.NewSpacer()))
 	scrollableList.SetMinSize(fyne.NewSize(300, 300))
 
 	content := container.NewBorder(
-		title,
-		buttonBar,
+		container.NewHBox(settingsBtn, layout.NewSpacer(), title, layout.NewSpacer()),
+		container.NewHBox(layout.NewSpacer(), addBtn, scanBtn),
 		nil,
 		nil,
 		scrollableList,
@@ -113,17 +111,22 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	return content
 }
 
-func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
-	backBtn := widget.NewButton("Back", func() {
-		fmt.Println("Back clicked")
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, data *ParsedAudioData) fyne.CanvasObject {
+	fmt.Println(data)
+
+	title := canvas.NewText("Device Editor", color.White) //theme.ForegroundColor())
+	title.TextSize = 24
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	title.Alignment = fyne.TextAlignCenter
+
+	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
 	})
 
 	// --- Get the device from config ---
 	device, ok := cfg.Devices[name]
 	if !ok {
 		device = DeviceConfig{}
-		backBtn.Text = "Cancel Device Creation"
 	}
 
 	deviceName := widget.NewEntry()
@@ -154,7 +157,6 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	}
 	if len(device.AppMediaControls) > 0 {
 		for appName, num := range device.AppMediaControls {
-			fmt.Println(appName, num)
 			addAppControlEntry(appName, &num, appControlEntries, appControlList)
 		}
 	}
@@ -169,7 +171,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		addAppControlEntry("", nil, appControlEntries, appControlList)
 	})
 
-	saveButton := widget.NewButton("Save", func() {
+	saveButton := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
 		newName := deviceName.Text
 
 		// update device name if changed
@@ -235,10 +237,10 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 
 		cfg.SaveConfig(configPath)
 		ScanForDevices(cfg, deviceList, connectedDevices, devices)
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
 	})
 
-	removeDeviceButton := widget.NewButton("Delete Device", func() {
+	removeDeviceButton := widget.NewButtonWithIcon("Delete Device", theme.DeleteIcon(), func() {
 		// Create a custom confirmation dialog
 		content := widget.NewLabel("Are you sure you want to delete this device?")
 
@@ -252,7 +254,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 					delete(cfg.Devices, name)
 					ScanForDevices(cfg, deviceList, connectedDevices, devices)
 					cfg.SaveConfig(configPath)
-					w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+					w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
 				}
 			},
 			w,
@@ -260,45 +262,107 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		d.Show()
 	})
 
-	// --- Center content ---
-	centerContent := container.NewVBox(
-		widget.NewLabel("Edit Device"),
-		deviceName,
-		widget.NewLabel("Serial Number"),
-		deviceSerial,
+	// Helper function to create section headers
+	createSectionHeader := func(text string) *canvas.Text {
+		header := canvas.NewText(text, color.White)
+		header.TextSize = 18
+		header.TextStyle = fyne.TextStyle{Bold: true}
+		return header
+	}
+
+	deviceConfigCard := container.NewVBox(
+		createSectionHeader("Device Configuration"),
 		widget.NewSeparator(),
-		widget.NewLabel("App Volumes:"),
-		appVolumeList,
-		addAppVolumeButton,
-		widget.NewSeparator(),
-		widget.NewLabel("Master Output Volume Controls:"),
-		masterVolumeList,
-		addMasterVolumeButton,
-		widget.NewSeparator(),
-		widget.NewLabel("App Media Controls:"),
-		appControlList,
-		addAppControlButton,
-		widget.NewSeparator(),
-		saveButton,
-		removeDeviceButton,
+		container.NewVBox(
+			container.NewBorder(nil, nil, widget.NewLabel("Device Name:"), nil, deviceName),
+			container.NewBorder(nil, nil, widget.NewLabel("Serial Number:"), widget.NewButtonWithIcon("", theme.SearchIcon(), func() { fmt.Println("Searching Serial Numbers") }), deviceSerial),
+		),
 	)
 
-	return container.NewBorder(backBtn, nil, nil, nil, centerContent)
+	appVolumeCard := container.NewVBox(
+		createSectionHeader("App Volume Configuration"),
+		widget.NewSeparator(),
+		appVolumeList,
+		addAppVolumeButton,
+	)
+
+	masterVolumeCard := container.NewVBox(
+		createSectionHeader("Master Volume Configuration"),
+		widget.NewSeparator(),
+		masterVolumeList,
+		addMasterVolumeButton,
+	)
+
+	mediaControlCard := container.NewVBox(
+		createSectionHeader("Media Configuration"),
+		widget.NewSeparator(),
+		appControlList,
+		addAppControlButton,
+	)
+
+	// Main content container with padding
+	contentContainer := container.NewVBox(
+		deviceConfigCard,
+		widget.NewLabel(""), // Spacer
+		appVolumeCard,
+		widget.NewLabel(""), // Spacer
+		masterVolumeCard,
+		widget.NewLabel(""), // Spacer
+		mediaControlCard,
+	)
+
+	// Wrap content in a max-width container
+	maxWidthContent := container.NewPadded(
+		container.NewCenter(
+			container.NewStack(
+				// This creates a container that won't exceed the specified size
+				&fyne.Container{
+					Layout: layout.NewStackLayout(),
+					Objects: []fyne.CanvasObject{
+						widget.NewLabel(""), // Invisible spacer for max width
+					},
+				},
+				contentContainer,
+			),
+		),
+	)
+
+	// Set a reasonable max size for the invisible spacer
+	if len(maxWidthContent.Objects) > 0 {
+		if centerContainer, ok := maxWidthContent.Objects[0].(*fyne.Container); ok {
+			if maxContainer, ok := centerContainer.Objects[0].(*fyne.Container); ok {
+				if len(maxContainer.Objects) > 0 {
+					maxContainer.Objects[0].(*fyne.Container).Objects[0].Resize(fyne.NewSize(600, 1))
+				}
+			}
+		}
+	}
+
+	scrollableList := container.NewVScroll(maxWidthContent)
+	//scrollableList.SetMinSize(fyne.NewSize(400, 400))
+
+	return container.NewBorder(
+		container.NewHBox(backBtn, layout.NewSpacer(), title, layout.NewSpacer(), removeDeviceButton),
+		container.NewHBox(layout.NewSpacer(), saveButton),
+		nil,
+		nil,
+		scrollableList,
+	)
 }
 
-func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) fyne.CanvasObject {
+func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, data *ParsedAudioData) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	saveBtn := widget.NewButtonWithIcon("Save", theme.ConfirmIcon(), func() {
+	saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
 		cfg.SaveConfig(configPath)
-		dialog.ShowInformation("Saved", "Settings have been saved.", w)
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
 	})
 
 	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
 	})
 
-	// Example setting fields
+	// Theme toggle
 	themeToggle := widget.NewCheck("Dark Mode", func(value bool) {
 		if value {
 			fyne.CurrentApp().Settings().SetTheme(theme.DarkTheme())
@@ -307,15 +371,48 @@ func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList bin
 		}
 	})
 
-	content := container.NewVBox(
-		title,
+	// Create card for settings
+	settingsCard := container.NewVBox(
+		widget.NewLabel("Appearance"),
 		widget.NewSeparator(),
 		themeToggle,
-		layout.NewSpacer(),
-		container.NewHBox(layout.NewSpacer(), backBtn, saveBtn),
 	)
 
-	return container.NewPadded(content)
+	// Wrap in padded, centered, max-width container
+	maxWidthContent := container.NewPadded(
+		container.NewCenter(
+			container.NewMax(
+				&fyne.Container{
+					Layout: layout.NewMaxLayout(),
+					Objects: []fyne.CanvasObject{
+						widget.NewLabel(""),
+					},
+				},
+				settingsCard,
+			),
+		),
+	)
+
+	// Set max width
+	if len(maxWidthContent.Objects) > 0 {
+		if centerContainer, ok := maxWidthContent.Objects[0].(*fyne.Container); ok {
+			if maxContainer, ok := centerContainer.Objects[0].(*fyne.Container); ok {
+				if len(maxContainer.Objects) > 0 {
+					maxContainer.Objects[0].(*fyne.Container).Objects[0].Resize(fyne.NewSize(600, 1))
+				}
+			}
+		}
+	}
+
+	settingscontent := container.NewVScroll(maxWidthContent)
+
+	return container.NewBorder(
+		container.NewHBox(backBtn, layout.NewSpacer(), title, layout.NewSpacer()),
+		container.NewHBox(layout.NewSpacer(), saveBtn),
+		nil,
+		nil,
+		settingscontent,
+	)
 }
 
 func refreshAppVolumeList(appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.Container) {
@@ -337,7 +434,7 @@ func refreshAppVolumeList(appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.C
 				refreshAppVolumeList(appVolumeEntries, appVolumeList)
 			}),
 		)
-		children = append(children, row)
+		children = append(children, container.NewVBox(row, entry.LevelWidget, widget.NewSeparator()))
 	}
 	appVolumeList.Objects = children
 	appVolumeList.Refresh()
@@ -408,7 +505,10 @@ func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]VolumeEntry
 		}
 	}
 
-	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberEntry})
+	levelWidget := widget.NewProgressBar()
+	levelWidget.SetValue(0.5)
+
+	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberEntry, levelWidget})
 	refreshAppVolumeList(appEntries, appList)
 }
 
@@ -456,6 +556,9 @@ func addMasterVolumeEntry(masterName string, masterNumber *int, masterEntries *[
 		}
 	}
 
-	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry})
+	levelWidget := widget.NewProgressBar()
+	levelWidget.SetValue(0.5)
+
+	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry, levelWidget})
 	refreshMasterVolumeList(masterEntries, appList)
 }

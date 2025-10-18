@@ -231,7 +231,7 @@ func ReadDeviceDataSerial(p serial.Port, cfg *DeviceConfig) (*DeviceData, error)
 	return values, nil
 }
 
-func JoinDeviceData(devices []*ParsedAudioData) ParsedAudioData {
+func JoinDeviceData(devices []*ParsedAudioData) *ParsedAudioData {
 	var device ParsedAudioData
 	device.PulseApps = make(map[string]float32)
 	device.MpirsApps = make(map[string]MpirsApp)
@@ -270,7 +270,7 @@ func JoinDeviceData(devices []*ParsedAudioData) ParsedAudioData {
 			}
 		}
 	}
-	return device
+	return &device
 }
 
 func GetArrayAt[T any](array []T, index int) (T, error) {
