@@ -19,7 +19,6 @@ import (
 type VolumeEntry struct {
 	NameEntry   *widget.Entry
 	NumberEntry *widget.Entry
-	LevelWidget *widget.ProgressBar
 }
 
 type AppControlEntry struct {
@@ -35,7 +34,7 @@ type AppControlNumber struct {
 	Next      int
 }
 
-func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, data *ParsedAudioData) fyne.CanvasObject {
+func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := canvas.NewText("MixMaster", color.White)
 	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
@@ -60,7 +59,7 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 			statusLabel.Alignment = fyne.TextAlignTrailing
 
 			btn := widget.NewButton(name, func() {
-				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices, data))
+				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 			})
 
 			// Each device row as a horizontal box
@@ -81,15 +80,15 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	connectedDevices.AddListener(binding.NewDataListener(func() { updateDeviceButtons() }))
 
 	addBtn := widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
-		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices, data))
+		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 	})
 
 	scanBtn := widget.NewButtonWithIcon("Scan Devices", theme.ViewRefreshIcon(), func() {
-		ScanForDevices(cfg, deviceList, connectedDevices, devices)
+		ScanForDevices(cfg, deviceList, connectedDevices, devices, serialNumbers)
 	})
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {
-		w.SetContent(SettingsPage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
+		w.SetContent(SettingsPage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 	})
 
 	deviceBoxTitle := canvas.NewText("Devices", color.White)
@@ -111,16 +110,14 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	return content
 }
 
-func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, data *ParsedAudioData) fyne.CanvasObject {
-	fmt.Println(data)
-
+func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := canvas.NewText("Device Editor", color.White) //theme.ForegroundColor())
 	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	title.Alignment = fyne.TextAlignCenter
 
 	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 	})
 
 	// --- Get the device from config ---
@@ -135,7 +132,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 
 	deviceSerial := widget.NewEntry()
 	deviceSerial.SetText(string(device.SerialNumber))
-	deviceSerial.SetPlaceHolder("Device Serial Number")
+	deviceSerial.SetPlaceHolder("Serial Number")
 
 	appVolumeEntries := &[]VolumeEntry{}
 	appVolumeList := container.NewVBox()
@@ -147,28 +144,28 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	// --- Populate existing apps ---
 	if len(device.AppVolumeControls) > 0 {
 		for appName, num := range device.AppVolumeControls {
-			addAppVolumeEntry(appName, &num, appVolumeEntries, appVolumeList)
+			addAppVolumeEntry(w, appName, &num, appVolumeEntries, appVolumeList, pulseSessions)
 		}
 	}
 	if len(device.MasterVolumeControls) > 0 {
 		for appName, num := range device.MasterVolumeControls {
-			addMasterVolumeEntry(appName, &num, masterVolumeEntries, masterVolumeList)
+			addMasterVolumeEntry(w, appName, &num, masterVolumeEntries, masterVolumeList, pulseSessions)
 		}
 	}
 	if len(device.AppMediaControls) > 0 {
 		for appName, num := range device.AppMediaControls {
-			addAppControlEntry(appName, &num, appControlEntries, appControlList)
+			addAppControlEntry(w, appName, &num, appControlEntries, appControlList, mpirsSessions)
 		}
 	}
 
 	addAppVolumeButton := widget.NewButton("Add App Volume", func() {
-		addAppVolumeEntry("", nil, appVolumeEntries, appVolumeList)
+		addAppVolumeEntry(w, "", nil, appVolumeEntries, appVolumeList, pulseSessions)
 	})
 	addMasterVolumeButton := widget.NewButton("Add Master Output Volume", func() {
-		addAppVolumeEntry("", nil, masterVolumeEntries, masterVolumeList)
+		addMasterVolumeEntry(w, "", nil, masterVolumeEntries, masterVolumeList, pulseSessions)
 	})
 	addAppControlButton := widget.NewButton("Add Media Controls", func() {
-		addAppControlEntry("", nil, appControlEntries, appControlList)
+		addAppControlEntry(w, "", nil, appControlEntries, appControlList, mpirsSessions)
 	})
 
 	saveButton := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
@@ -180,6 +177,9 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 			delete(cfg.Devices, name)
 			name = newName
 		}
+
+		// Save Serial Numbers
+		device.SerialNumber = deviceSerial.Text
 
 		// rebuild AppVolumeControls
 		newAppVolume := make(map[string]int)
@@ -236,8 +236,8 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		cfg.Devices[name] = device
 
 		cfg.SaveConfig(configPath)
-		ScanForDevices(cfg, deviceList, connectedDevices, devices)
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
+		ScanForDevices(cfg, deviceList, connectedDevices, devices, serialNumbers)
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 	})
 
 	removeDeviceButton := widget.NewButtonWithIcon("Delete Device", theme.DeleteIcon(), func() {
@@ -252,9 +252,9 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 			func(confirmed bool) {
 				if !confirmed {
 					delete(cfg.Devices, name)
-					ScanForDevices(cfg, deviceList, connectedDevices, devices)
+					ScanForDevices(cfg, deviceList, connectedDevices, devices, serialNumbers)
 					cfg.SaveConfig(configPath)
-					w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
+					w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 				}
 			},
 			w,
@@ -270,12 +270,48 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		return header
 	}
 
+	searchButton := widget.NewButtonWithIcon("", theme.SearchIcon(), func() {
+		// declare globally so you can close it inside the list
+		var d dialog.Dialog
+
+		// Create a list of serial numbers for selection
+		var serialOptions []string
+		for serial := range *serialNumbers {
+			serialOptions = append(serialOptions, serial)
+		}
+
+		// List widget for dialog
+		serialList := widget.NewList(
+			func() int { return len(serialOptions) },
+			func() fyne.CanvasObject {
+				return widget.NewButton("template", nil)
+			},
+			func(i widget.ListItemID, o fyne.CanvasObject) {
+				btn := o.(*widget.Button)
+				serial := serialOptions[i]
+				// Display Serial Number and Name Entry
+				btn.SetText(fmt.Sprintf("%s - %s", serial, (*serialNumbers)[serial]))
+				btn.OnTapped = func() {
+					// Set Serial Number Value to chosen value
+					deviceSerial.SetText(serial)
+					// Hide dialog
+					d.Hide()
+				}
+			},
+		)
+
+		// Create and show the dialog
+		d = dialog.NewCustom("Avalible Devices", "Close", serialList, w)
+		d.Resize(fyne.NewSize(400, 300))
+		d.Show()
+	})
+
 	deviceConfigCard := container.NewVBox(
 		createSectionHeader("Device Configuration"),
 		widget.NewSeparator(),
 		container.NewVBox(
 			container.NewBorder(nil, nil, widget.NewLabel("Device Name:"), nil, deviceName),
-			container.NewBorder(nil, nil, widget.NewLabel("Serial Number:"), widget.NewButtonWithIcon("", theme.SearchIcon(), func() { fmt.Println("Searching Serial Numbers") }), deviceSerial),
+			container.NewBorder(nil, nil, widget.NewLabel("Serial Number:"), searchButton, deviceSerial),
 		),
 	)
 
@@ -350,16 +386,16 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	)
 }
 
-func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, data *ParsedAudioData) fyne.CanvasObject {
+func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
 		cfg.SaveConfig(configPath)
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 	})
 
 	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, data))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
 	})
 
 	// Theme toggle
@@ -415,12 +451,20 @@ func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList bin
 	)
 }
 
-func refreshAppVolumeList(appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.Container) {
+func refreshAppVolumeList(w fyne.Window, appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.Container, pulseSessions *PulseSessions) {
 	children := []fyne.CanvasObject{}
+	appNames := []string{}
+	for name, _ := range pulseSessions.Apps {
+		appNames = append(appNames, name)
+	}
+	appNames = append(appNames, "unmapped")
+
 	for _, e := range *appVolumeEntries {
 		entry := e
+
 		row := container.NewHBox(
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			searchButtonPopup(w, "Current Apps Avalible", appNames, entry.NameEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
 			widget.NewButton("Remove", func() {
 				// remove from slice
@@ -431,21 +475,29 @@ func refreshAppVolumeList(appVolumeEntries *[]VolumeEntry, appVolumeList *fyne.C
 					}
 				}
 				*appVolumeEntries = newList
-				refreshAppVolumeList(appVolumeEntries, appVolumeList)
+				refreshAppVolumeList(w, appVolumeEntries, appVolumeList, pulseSessions)
 			}),
 		)
-		children = append(children, container.NewVBox(row, entry.LevelWidget, widget.NewSeparator()))
+		children = append(children, row)
 	}
 	appVolumeList.Objects = children
 	appVolumeList.Refresh()
 }
 
-func refreshMasterVolumeList(masterVolumeEntries *[]VolumeEntry, masterVolumeList *fyne.Container) {
+func refreshMasterVolumeList(w fyne.Window, masterVolumeEntries *[]VolumeEntry, masterVolumeList *fyne.Container, pulseSessions *PulseSessions) {
 	children := []fyne.CanvasObject{}
+
+	outputNames := []string{}
+	for name, _ := range pulseSessions.Masters {
+		outputNames = append(outputNames, name)
+	}
+	outputNames = append(outputNames, "master")
+
 	for _, e := range *masterVolumeEntries {
 		entry := e
 		row := container.NewHBox(
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			searchButtonPopup(w, "Current Outputs Avalible", outputNames, entry.NameEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
 			widget.NewButton("Remove", func() {
 				// remove from slice
@@ -456,7 +508,7 @@ func refreshMasterVolumeList(masterVolumeEntries *[]VolumeEntry, masterVolumeLis
 					}
 				}
 				*masterVolumeEntries = newList
-				refreshMasterVolumeList(masterVolumeEntries, masterVolumeList)
+				refreshMasterVolumeList(w, masterVolumeEntries, masterVolumeList, pulseSessions)
 			}),
 		)
 		children = append(children, row)
@@ -465,12 +517,18 @@ func refreshMasterVolumeList(masterVolumeEntries *[]VolumeEntry, masterVolumeLis
 	masterVolumeList.Refresh()
 }
 
-func refreshAppControlList(appControlEntries *[]AppControlEntry, appControlList *fyne.Container) {
+func refreshAppControlList(w fyne.Window, appControlEntries *[]AppControlEntry, appControlList *fyne.Container, mpirsSessions *MpirsSessions) {
 	children := []fyne.CanvasObject{}
+	mpirsAppNames := []string{}
+	for name, _ := range *mpirsSessions {
+		mpirsAppNames = append(mpirsAppNames, name)
+	}
+
 	for _, e := range *appControlEntries {
 		entry := e
 		row := container.NewHBox(
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			searchButtonPopup(w, "Current Apps Avalible", mpirsAppNames, entry.NameEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.BackEntry.MinSize().Height)), entry.BackEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.PlayPauseEntry.MinSize().Height)), entry.PlayPauseEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NextEntry.MinSize().Height)), entry.NextEntry),
@@ -483,7 +541,7 @@ func refreshAppControlList(appControlEntries *[]AppControlEntry, appControlList 
 					}
 				}
 				*appControlEntries = newList
-				refreshAppControlList(appControlEntries, appControlList)
+				refreshAppControlList(w, appControlEntries, appControlList, mpirsSessions)
 			}),
 		)
 		children = append(children, row)
@@ -492,7 +550,7 @@ func refreshAppControlList(appControlEntries *[]AppControlEntry, appControlList 
 	appControlList.Refresh()
 }
 
-func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]VolumeEntry, appList *fyne.Container) {
+func addAppVolumeEntry(w fyne.Window, appName string, appNumber *int, appEntries *[]VolumeEntry, appList *fyne.Container, pulseSessions *PulseSessions) {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("App Name")
 	nameEntry.SetText(appName)
@@ -508,11 +566,31 @@ func addAppVolumeEntry(appName string, appNumber *int, appEntries *[]VolumeEntry
 	levelWidget := widget.NewProgressBar()
 	levelWidget.SetValue(0.5)
 
-	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberEntry, levelWidget})
-	refreshAppVolumeList(appEntries, appList)
+	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberEntry})
+	refreshAppVolumeList(w, appEntries, appList, pulseSessions)
 }
 
-func addAppControlEntry(appName string, controlNumbers *mpirsData, appControlEntries *[]AppControlEntry, appControlList *fyne.Container) {
+func addMasterVolumeEntry(w fyne.Window, masterName string, masterNumber *int, masterEntries *[]VolumeEntry, appList *fyne.Container, pulseSessions *PulseSessions) {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Output Name")
+	nameEntry.SetText(masterName)
+
+	numberEntry := widget.NewEntry()
+	numberEntry.SetPlaceHolder("Slider Number")
+	if masterNumber != nil {
+		if *masterNumber != -1 {
+			numberEntry.SetText(fmt.Sprintf("%d", *masterNumber))
+		}
+	}
+
+	levelWidget := widget.NewProgressBar()
+	levelWidget.SetValue(0.5)
+
+	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry})
+	refreshMasterVolumeList(w, masterEntries, appList, pulseSessions)
+}
+
+func addAppControlEntry(w fyne.Window, appName string, controlNumbers *mpirsData, appControlEntries *[]AppControlEntry, appControlList *fyne.Container, mpirsSessions *MpirsSessions) {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("App Name")
 	nameEntry.SetText(appName)
@@ -540,25 +618,39 @@ func addAppControlEntry(appName string, controlNumbers *mpirsData, appControlEnt
 	}
 
 	*appControlEntries = append(*appControlEntries, AppControlEntry{nameEntry, backEntry, playpauseEntry, nextEntry})
-	refreshAppControlList(appControlEntries, appControlList)
+	refreshAppControlList(w, appControlEntries, appControlList, mpirsSessions)
 }
 
-func addMasterVolumeEntry(masterName string, masterNumber *int, masterEntries *[]VolumeEntry, appList *fyne.Container) {
-	nameEntry := widget.NewEntry()
-	nameEntry.SetPlaceHolder("Output Name")
-	nameEntry.SetText(masterName)
+func searchButtonPopup(w fyne.Window, title string, textInput []string, elementToChange *widget.Entry) *widget.Button {
+	searchButton := widget.NewButtonWithIcon("", theme.SearchIcon(), func() {
+		// declare globally so you can close it inside the list
+		var d dialog.Dialog
 
-	numberEntry := widget.NewEntry()
-	numberEntry.SetPlaceHolder("Slider Number")
-	if masterNumber != nil {
-		if *masterNumber != -1 {
-			numberEntry.SetText(fmt.Sprintf("%d", *masterNumber))
-		}
-	}
+		// List widget for dialog
+		serialList := widget.NewList(
+			func() int { return len(textInput) },
+			func() fyne.CanvasObject {
+				return widget.NewButton("template", nil)
+			},
+			func(i widget.ListItemID, o fyne.CanvasObject) {
+				btn := o.(*widget.Button)
+				serial := textInput[i]
+				// Display Serial Number and Name Entry
+				btn.SetText(fmt.Sprint(serial))
+				btn.OnTapped = func() {
+					// Set Serial Number Value to chosen value
+					elementToChange.SetText(serial)
+					// Hide dialog
+					d.Hide()
+				}
+			},
+		)
 
-	levelWidget := widget.NewProgressBar()
-	levelWidget.SetValue(0.5)
+		// Create and show the dialog
+		d = dialog.NewCustom(title, "Close", serialList, w)
+		d.Resize(fyne.NewSize(400, 300))
+		d.Show()
+	})
 
-	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry, levelWidget})
-	refreshMasterVolumeList(masterEntries, appList)
+	return searchButton
 }

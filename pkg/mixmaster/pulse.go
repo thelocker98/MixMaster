@@ -12,9 +12,9 @@ type pulseClient struct {
 }
 
 type PulseSessions struct {
-	Masters  map[string]*proto.GetSinkInfoReply
-	Apps     map[string][]*proto.GetSinkInputInfoReply
-	AppNames []string
+	Masters map[string]*proto.GetSinkInfoReply
+	Apps    map[string][]*proto.GetSinkInputInfoReply
+	//AppNames []string
 }
 
 const maxVolume = 0x10000
@@ -38,8 +38,8 @@ func CreatePulseClient(applicationName string) (*pulseClient, error) {
 	return &pulseClient{client: client}, nil
 }
 
-func (c *pulseClient) GetPulseSessions() (*PulseSessions, error) {
-	data := &PulseSessions{
+func (c *pulseClient) GetPulseSessions() (PulseSessions, error) {
+	data := PulseSessions{
 		Masters: make(map[string]*proto.GetSinkInfoReply),
 		Apps:    make(map[string][]*proto.GetSinkInputInfoReply),
 	}
@@ -48,7 +48,7 @@ func (c *pulseClient) GetPulseSessions() (*PulseSessions, error) {
 	replyApp := proto.GetSinkInputInfoListReply{}
 
 	if err := c.client.Request(&requestApp, &replyApp); err != nil {
-		return nil, err
+		return PulseSessions{}, err
 	}
 
 	for _, info := range replyApp {
@@ -59,10 +59,10 @@ func (c *pulseClient) GetPulseSessions() (*PulseSessions, error) {
 
 		if okApp {
 			data.Apps[appName.String()] = append(data.Apps[appName.String()], info)
-			data.AppNames = append(data.AppNames, appName.String())
+			//data.AppNames = append(data.AppNames, appName.String())
 		} else if okNode {
 			data.Apps[nodeName.String()] = append(data.Apps[nodeName.String()], info)
-			data.AppNames = append(data.AppNames, appName.String())
+			//data.AppNames = append(data.AppNames, nodeName.String())
 		} else {
 			continue
 		}
@@ -72,7 +72,7 @@ func (c *pulseClient) GetPulseSessions() (*PulseSessions, error) {
 	replyMaster := proto.GetSinkInfoListReply{}
 
 	if err := c.client.Request(&requestMaster, &replyMaster); err != nil {
-		return nil, err
+		return PulseSessions{}, err
 	}
 
 	for _, info := range replyMaster {

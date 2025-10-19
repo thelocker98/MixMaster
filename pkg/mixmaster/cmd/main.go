@@ -9,7 +9,6 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
 )
@@ -30,11 +29,15 @@ func main() {
 
 	// Parse Config
 	cfg := mixmaster.ParseConfig(*configPath)
+	// Define values
 	fyneDeviceList := binding.NewStringList()
 	fyneDeviceConnected := binding.NewBoolList()
+	pulseSessions := mixmaster.PulseSessions{}
+	mpirsSessions := mixmaster.MpirsSessions{}
 
 	// Create Device Array
 	devices := make(map[string]*mixmaster.MixMasterInstance)
+	serialNumberDevices := make(map[string]string)
 
 	// Check if show session flag is enabled
 	if *showSessions {
@@ -59,21 +62,13 @@ func main() {
 			}),
 			// Scan for devices on demand
 			fyne.NewMenuItem("Device Scan", func() {
-				mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices)
+				mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 			}))
 
 		desk.SetSystemTrayMenu(m)
 	} else {
 		// End program and alert user that the device only works on desktop
 		panic("This application only works on desktop devices")
-	}
-
-	if cfg.App.Theme == "dark" {
-		fyne.CurrentApp().Settings().SetTheme(theme.DarkTheme())
-	} else if cfg.App.Theme == "light" {
-		fyne.CurrentApp().Settings().SetTheme(theme.LightTheme())
-	} else {
-		fyne.CurrentApp().Settings().SetTheme(theme.DefaultTheme())
 	}
 
 	// Set window name
@@ -91,7 +86,7 @@ func main() {
 		fyneDeviceConnected.Append(ok)
 	}
 
-	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, dat))
+	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices, &pulseSessions, &mpirsSessions))
 
 	go func() {
 		// Create Pulse Client
@@ -106,7 +101,7 @@ func main() {
 			panic("could not creating mpirs client")
 		}
 
-		mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices)
+		mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 
 		for {
 			var deviceData []*mixmaster.ParsedAudioData
@@ -118,7 +113,7 @@ func main() {
 				if err != nil {
 					a.SendNotification(fyne.NewNotification("Mixmaster", "Lost Connection with Device"))
 					delete(devices, deviceName)
-					mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices)
+					mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 					continue
 				}
 				// Add Data to the device data array
@@ -129,14 +124,14 @@ func main() {
 			dat = mixmaster.JoinDeviceData(deviceData)
 
 			// Get pulse audio sessions
-			pulseSessions, err := pulseClient.GetPulseSessions()
+			pulseSessions, err = pulseClient.GetPulseSessions()
 			if err != nil {
 				// could not get pulse audio sessions
 				return
 			}
 
 			// Get mpris sessions
-			mpirsSessions, err := mprisClient.GetMpirsSessions()
+			mpirsSessions, err = mprisClient.GetMpirsSessions()
 			if err != nil {
 				// could not get app media controls
 				return

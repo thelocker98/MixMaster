@@ -24,7 +24,7 @@ func MprisInitialize() (*mpirsClient, error) {
 	return &mpirsClient{Conn: conn}, nil
 }
 
-func (conn *mpirsClient) GetMpirsSessions() (*MpirsSessions, error) {
+func (conn *mpirsClient) GetMpirsSessions() (MpirsSessions, error) {
 	audioPlayers := make(MpirsSessions)
 
 	appNames, err := mpris.List(conn.Conn)
@@ -36,7 +36,7 @@ func (conn *mpirsClient) GetMpirsSessions() (*MpirsSessions, error) {
 		playerName := strings.ToLower(strings.Split(player.GetShortName(), ".")[0])
 		audioPlayers[playerName] = player
 	}
-	return &audioPlayers, nil
+	return audioPlayers, nil
 }
 
 func (sessions *MpirsSessions) MediaControls(parsedData MpirsApps, c *mpirsClient) error {

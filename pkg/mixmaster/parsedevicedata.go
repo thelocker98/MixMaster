@@ -47,6 +47,5 @@ func (data *DeviceData) parseDataConfig(cfg *DeviceConfig) (ParsedAudioData, err
 			parsedData.MpirsApps[mpirsAppName] = tempAppData
 		}
 	}
-
 	return parsedData, nil
 }

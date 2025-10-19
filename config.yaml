@@ -1,28 +1,28 @@
 Devices:
-    MixMaster 1:
-        pulse-app-slidders:
-            brave: 0
-            unmapped: 1
-            vivaldi-bin: 2
-        pulse-master-slidders:
-            master: 3
-        serialNumber: S0S04B00T0001
-    MixMaster Pro 4:
-        pulse-app-slidders:
-            brave: 0
-        pulse-master-slidders:
-            master: 1
-        app-media-control:
-            brave:
-                back: -1
-                playpause: 1
-                next: -1
-            vivialdi:
-                back: -1
-                playpause: 2
-                next: -1
-        invert_slidders: true
-        serialNumber: H0S02B03T0001
+  MixMaster Pro 4:
+    pulse-app-slidders:
+      brave: 0
+    pulse-master-slidders:
+      master: 1
+    app-media-control:
+      brave:
+        back: -1
+        playpause: 1
+        next: -1
+      vivialdi:
+        back: -1
+        playpause: 2
+        next: -1
+    invert_slidders: true
+    serialNumber: H0S02B03T0001
+  Serial Device:
+    pulse-app-slidders:
+      brave: 0
+      unmapped: 1
+      vivaldi-bin: 2
+    pulse-master-slidders:
+      master: 3
+    serialNumber: S0S04B00T0001
 app:
-    theme: ""
-    notifications: false
+  theme: ""
+  notifications: false

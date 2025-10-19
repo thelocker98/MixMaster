@@ -14,6 +14,8 @@ import (
 	"go.bug.st/serial"
 )
 
+var DataData string
+
 type Device struct {
 	HidDev    map[string]string
 	SerialDev map[string]string
@@ -299,9 +301,35 @@ func HashSlice[T any](slice []T) (string, error) {
 	return hex.EncodeToString(h[:]), nil
 }
 
-func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance) {
+func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string) {
 	// Get a list of all devices pluged into computer
 	dev, _ := GetDevice()
+	for serialNum, _ := range dev.HidDev {
+		if serialNum == "" {
+			break
+		}
+		for name, device := range cfg.Devices {
+			if device.SerialNumber == serialNum {
+				(*serialNumbers)[serialNum] = name
+				break
+			} else {
+				(*serialNumbers)[serialNum] = "Not Used"
+			}
+		}
+	}
+	for serialNum, _ := range dev.SerialDev {
+		if serialNum == "" {
+			break
+		}
+		for name, device := range cfg.Devices {
+			if device.SerialNumber == serialNum {
+				(*serialNumbers)[serialNum] = name
+				break
+			} else {
+				(*serialNumbers)[serialNum] = "Not Used" // portName
+			}
+		}
+	}
 
 	// Loop Through Devices in the config and see if they are connected to the computer
 	for deviceName, device := range cfg.Devices {
