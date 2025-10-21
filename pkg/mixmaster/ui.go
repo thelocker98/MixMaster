@@ -15,6 +15,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+type ControlsCount struct {
+	numOfSlidders int
+	numOfButtons  int
+}
+
 // --- App list setup ---
 type VolumeEntry struct {
 	NameEntry   *widget.Entry
@@ -169,6 +174,11 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	})
 
 	saveButton := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
+		if deviceName.Text == "" || deviceSerial.Text == "" {
+			fmt.Println("Invalid name or serial number")
+			return
+		}
+
 		newName := deviceName.Text
 
 		// update device name if changed
@@ -307,7 +317,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	})
 
 	deviceConfigCard := container.NewVBox(
-		createSectionHeader("Device Configuration"),
+		container.NewHBox(createSectionHeader("Device Configuration"), widget.NewButtonWithIcon("", theme.QuestionIcon(), func() { fmt.Println("help") })),
 		widget.NewSeparator(),
 		container.NewVBox(
 			container.NewBorder(nil, nil, widget.NewLabel("Device Name:"), nil, deviceName),
@@ -463,10 +473,10 @@ func refreshAppVolumeList(w fyne.Window, appVolumeEntries *[]VolumeEntry, appVol
 		entry := e
 
 		row := container.NewHBox(
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NameEntry.MinSize().Height)), entry.NameEntry),
 			searchButtonPopup(w, "Current Apps Avalible", appNames, entry.NameEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
-			widget.NewButton("Remove", func() {
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(280, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
+			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
 				newList := []VolumeEntry{}
 				for _, a := range *appVolumeEntries {
@@ -496,10 +506,10 @@ func refreshMasterVolumeList(w fyne.Window, masterVolumeEntries *[]VolumeEntry, 
 	for _, e := range *masterVolumeEntries {
 		entry := e
 		row := container.NewHBox(
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NameEntry.MinSize().Height)), entry.NameEntry),
 			searchButtonPopup(w, "Current Outputs Avalible", outputNames, entry.NameEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
-			widget.NewButton("Remove", func() {
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(280, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
+			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
 				newList := []VolumeEntry{}
 				for _, a := range *masterVolumeEntries {
@@ -527,12 +537,12 @@ func refreshAppControlList(w fyne.Window, appControlEntries *[]AppControlEntry, 
 	for _, e := range *appControlEntries {
 		entry := e
 		row := container.NewHBox(
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NameEntry.MinSize().Height)), entry.NameEntry),
 			searchButtonPopup(w, "Current Apps Avalible", mpirsAppNames, entry.NameEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.BackEntry.MinSize().Height)), entry.BackEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.PlayPauseEntry.MinSize().Height)), entry.PlayPauseEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NextEntry.MinSize().Height)), entry.NextEntry),
-			widget.NewButton("Remove", func() {
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(90, entry.BackEntry.MinSize().Height)), entry.BackEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(90, entry.PlayPauseEntry.MinSize().Height)), entry.PlayPauseEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(90, entry.NextEntry.MinSize().Height)), entry.NextEntry),
+			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
 				newList := []AppControlEntry{}
 				for _, a := range *appControlEntries {
@@ -556,7 +566,7 @@ func addAppVolumeEntry(w fyne.Window, appName string, appNumber *int, appEntries
 	nameEntry.SetText(appName)
 
 	numberEntry := widget.NewEntry()
-	numberEntry.SetPlaceHolder("App Number")
+	numberEntry.SetPlaceHolder("Slidder")
 	if appNumber != nil {
 		if *appNumber != -1 {
 			numberEntry.SetText(fmt.Sprintf("%d", *appNumber))
@@ -576,7 +586,7 @@ func addMasterVolumeEntry(w fyne.Window, masterName string, masterNumber *int, m
 	nameEntry.SetText(masterName)
 
 	numberEntry := widget.NewEntry()
-	numberEntry.SetPlaceHolder("Slider Number")
+	numberEntry.SetPlaceHolder("Slidder")
 	if masterNumber != nil {
 		if *masterNumber != -1 {
 			numberEntry.SetText(fmt.Sprintf("%d", *masterNumber))
@@ -597,13 +607,13 @@ func addAppControlEntry(w fyne.Window, appName string, controlNumbers *mpirsData
 
 	// Back
 	backEntry := widget.NewEntry()
-	backEntry.SetPlaceHolder("Back Number")
+	backEntry.SetPlaceHolder("Back")
 	// PlayPause
 	playpauseEntry := widget.NewEntry()
-	playpauseEntry.SetPlaceHolder("Play/Pause Number")
+	playpauseEntry.SetPlaceHolder("Play/Pause")
 	// Next
 	nextEntry := widget.NewEntry()
-	nextEntry.SetPlaceHolder("Next Number")
+	nextEntry.SetPlaceHolder("Next")
 
 	if controlNumbers != nil {
 		if controlNumbers.Back != -1 {
@@ -653,4 +663,22 @@ func searchButtonPopup(w fyne.Window, title string, textInput []string, elementT
 	})
 
 	return searchButton
+}
+
+func processSerialNumber(serialNumber string) (ControlsCount, error) {
+	var controlsCount ControlsCount
+
+	num, err := strconv.Atoi(serialNumber[3:5])
+	if err != nil {
+		return ControlsCount{}, err
+	}
+	controlsCount.numOfSlidders = num
+
+	num, err = strconv.Atoi(serialNumber[6:8])
+	if err != nil {
+		return ControlsCount{}, err
+	}
+	controlsCount.numOfButtons = num
+
+	return controlsCount, nil
 }
