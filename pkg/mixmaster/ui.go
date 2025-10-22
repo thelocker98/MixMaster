@@ -15,6 +15,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+var serialNumberString string
+
 type ControlsCount struct {
 	numOfSlidders int
 	numOfButtons  int
@@ -22,15 +24,14 @@ type ControlsCount struct {
 
 // --- App list setup ---
 type VolumeEntry struct {
-	NameEntry   *widget.Entry
-	NumberEntry *widget.Entry
+	NameEntry  *widget.Entry
+	NumberList *widget.Select
 }
-
 type AppControlEntry struct {
-	NameEntry      *widget.Entry
-	BackEntry      *widget.Entry
-	PlayPauseEntry *widget.Entry
-	NextEntry      *widget.Entry
+	NameEntry     *widget.Entry
+	BackList      *widget.Select
+	PlayPauseList *widget.Select
+	NextList      *widget.Select
 }
 
 type AppControlNumber struct {
@@ -138,6 +139,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	deviceSerial := widget.NewEntry()
 	deviceSerial.SetText(string(device.SerialNumber))
 	deviceSerial.SetPlaceHolder("Serial Number")
+	serialNumberString = deviceSerial.Text
 
 	appVolumeEntries := &[]VolumeEntry{}
 	appVolumeList := container.NewVBox()
@@ -149,12 +151,12 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	// --- Populate existing apps ---
 	if len(device.AppVolumeControls) > 0 {
 		for appName, num := range device.AppVolumeControls {
-			addAppVolumeEntry(w, appName, &num, appVolumeEntries, appVolumeList, pulseSessions)
+			addAppVolumeEntry(w, appName, num, appVolumeEntries, appVolumeList, pulseSessions)
 		}
 	}
 	if len(device.MasterVolumeControls) > 0 {
 		for appName, num := range device.MasterVolumeControls {
-			addMasterVolumeEntry(w, appName, &num, masterVolumeEntries, masterVolumeList, pulseSessions)
+			addMasterVolumeEntry(w, appName, num, masterVolumeEntries, masterVolumeList, pulseSessions)
 		}
 	}
 	if len(device.AppMediaControls) > 0 {
@@ -164,18 +166,20 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	}
 
 	addAppVolumeButton := widget.NewButton("Add App Volume", func() {
-		addAppVolumeEntry(w, "", nil, appVolumeEntries, appVolumeList, pulseSessions)
+		addAppVolumeEntry(w, "", -1, appVolumeEntries, appVolumeList, pulseSessions)
 	})
 	addMasterVolumeButton := widget.NewButton("Add Master Output Volume", func() {
-		addMasterVolumeEntry(w, "", nil, masterVolumeEntries, masterVolumeList, pulseSessions)
+		addMasterVolumeEntry(w, "", -1, masterVolumeEntries, masterVolumeList, pulseSessions)
 	})
 	addAppControlButton := widget.NewButton("Add Media Controls", func() {
 		addAppControlEntry(w, "", nil, appControlEntries, appControlList, mpirsSessions)
 	})
 
 	saveButton := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
-		if deviceName.Text == "" || deviceSerial.Text == "" {
-			fmt.Println("Invalid name or serial number")
+		_, err := processSerialNumber(deviceSerial.Text)
+		if deviceName.Text == "" || deviceSerial.Text == "" || err != nil {
+			content := widget.NewLabel("Error Parsing Device Name or Device Serial Name")
+			dialog.NewCustom("Parsing Error", "Ok", content, w).Show()
 			return
 		}
 
@@ -194,11 +198,12 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		// rebuild AppVolumeControls
 		newAppVolume := make(map[string]int)
 		for _, e := range *appVolumeEntries {
-			if e.NameEntry.Text != "" {
-				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil && e.NameEntry.Text != "" {
-					newAppVolume[e.NameEntry.Text] = num
-				} else {
+			if e.NameEntry.Text != "" || len(e.NumberList.Selected) < 10 {
+				if e.NumberList.Selected == "none" {
 					newAppVolume[e.NameEntry.Text] = -1
+				} else {
+					num, _ := strconv.Atoi(e.NumberList.Selected[9:])
+					newAppVolume[e.NameEntry.Text] = num - 1 // minus one to bring it back to 0 as the first
 				}
 			}
 		}
@@ -208,10 +213,11 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		newMasterVolume := make(map[string]int)
 		for _, e := range *masterVolumeEntries {
 			if e.NameEntry.Text != "" {
-				if num, err := strconv.Atoi(e.NumberEntry.Text); err == nil && e.NameEntry.Text != "" {
-					newMasterVolume[e.NameEntry.Text] = num
-				} else {
+				if e.NumberList.Selected == "none" || len(e.NumberList.Selected) < 10 {
 					newMasterVolume[e.NameEntry.Text] = -1
+				} else {
+					num, _ := strconv.Atoi(e.NumberList.Selected[9:])
+					newMasterVolume[e.NameEntry.Text] = num - 1 // minus one to bring it back to 0 as the first
 				}
 			}
 		}
@@ -222,20 +228,23 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		for _, e := range *appControlEntries {
 			var mpirsData mpirsData
 			if e.NameEntry.Text != "" {
-				if num, err := strconv.Atoi(e.BackEntry.Text); err == nil && e.BackEntry.Text != "" {
-					mpirsData.Back = num
-				} else {
+				if e.BackList.Selected == "none" || len(e.BackList.Selected) < 9 {
 					mpirsData.Back = -1
-				}
-				if num, err := strconv.Atoi(e.PlayPauseEntry.Text); err == nil && e.PlayPauseEntry.Text != "" {
-					mpirsData.PlayPause = num
 				} else {
+					num, _ := strconv.Atoi(e.BackList.Selected[8:])
+					mpirsData.Back = num - 1 // minus one to bring it back to 0 as the first
+				}
+				if e.PlayPauseList.Selected == "none" || len(e.PlayPauseList.Selected) < 9 {
 					mpirsData.PlayPause = -1
-				}
-				if num, err := strconv.Atoi(e.NextEntry.Text); err == nil && e.NextEntry.Text != "" {
-					mpirsData.Next = num
 				} else {
+					num, _ := strconv.Atoi(e.PlayPauseList.Selected[8:])
+					mpirsData.PlayPause = num - 1 // minus one to bring it back to 0 as the first
+				}
+				if e.NextList.Selected == "none" || len(e.NextList.Selected) < 9 {
 					mpirsData.Next = -1
+				} else {
+					num, _ := strconv.Atoi(e.NextList.Selected[8:])
+					mpirsData.Next = num - 1 // minus one to bring it back to 0 as the first
 				}
 
 				newControlsApps[e.NameEntry.Text] = mpirsData
@@ -320,31 +329,39 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		container.NewHBox(createSectionHeader("Device Configuration"), widget.NewButtonWithIcon("", theme.QuestionIcon(), func() { fmt.Println("help") })),
 		widget.NewSeparator(),
 		container.NewVBox(
-			container.NewBorder(nil, nil, widget.NewLabel("Device Name:"), nil, deviceName),
-			container.NewBorder(nil, nil, widget.NewLabel("Serial Number:"), searchButton, deviceSerial),
+			container.NewHBox(widget.NewLabel("Device Name:"), container.New(layout.NewGridWrapLayout(fyne.NewSize(350, deviceName.MinSize().Height)), deviceName)),
+			container.NewHBox(widget.NewLabel("Serial Number:"), container.New(layout.NewGridWrapLayout(fyne.NewSize(300, deviceSerial.MinSize().Height)), deviceSerial), searchButton),
 		),
 	)
 
-	appVolumeCard := container.NewVBox(
-		createSectionHeader("App Volume Configuration"),
-		widget.NewSeparator(),
-		appVolumeList,
-		addAppVolumeButton,
-	)
+	x, _ := processSerialNumber(serialNumberString)
+	appVolumeCard := container.NewHBox(layout.NewSpacer())
+	masterVolumeCard := container.NewHBox(layout.NewSpacer())
+	mediaControlCard := container.NewHBox(layout.NewSpacer())
 
-	masterVolumeCard := container.NewVBox(
-		createSectionHeader("Master Volume Configuration"),
-		widget.NewSeparator(),
-		masterVolumeList,
-		addMasterVolumeButton,
-	)
+	if x.numOfSlidders != 0 {
+		appVolumeCard = container.NewVBox(
+			createSectionHeader("App Volume Configuration"),
+			widget.NewSeparator(),
+			appVolumeList,
+			addAppVolumeButton,
+		)
 
-	mediaControlCard := container.NewVBox(
-		createSectionHeader("Media Configuration"),
-		widget.NewSeparator(),
-		appControlList,
-		addAppControlButton,
-	)
+		masterVolumeCard = container.NewVBox(
+			createSectionHeader("Master Volume Configuration"),
+			widget.NewSeparator(),
+			masterVolumeList,
+			addMasterVolumeButton,
+		)
+	}
+	if x.numOfButtons != 0 {
+		mediaControlCard = container.NewVBox(
+			createSectionHeader("Media Configuration"),
+			widget.NewSeparator(),
+			appControlList,
+			addAppControlButton,
+		)
+	}
 
 	// Main content container with padding
 	contentContainer := container.NewVBox(
@@ -473,9 +490,9 @@ func refreshAppVolumeList(w fyne.Window, appVolumeEntries *[]VolumeEntry, appVol
 		entry := e
 
 		row := container.NewHBox(
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
 			searchButtonPopup(w, "Current Apps Avalible", appNames, entry.NameEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(280, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(290, entry.NumberList.MinSize().Height)), entry.NumberList),
 			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
 				newList := []VolumeEntry{}
@@ -506,9 +523,9 @@ func refreshMasterVolumeList(w fyne.Window, masterVolumeEntries *[]VolumeEntry, 
 	for _, e := range *masterVolumeEntries {
 		entry := e
 		row := container.NewHBox(
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NameEntry.MinSize().Height)), entry.NameEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
 			searchButtonPopup(w, "Current Outputs Avalible", outputNames, entry.NameEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(280, entry.NumberEntry.MinSize().Height)), entry.NumberEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(290, entry.NumberList.MinSize().Height)), entry.NumberList),
 			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
 				newList := []VolumeEntry{}
@@ -539,9 +556,9 @@ func refreshAppControlList(w fyne.Window, appControlEntries *[]AppControlEntry, 
 		row := container.NewHBox(
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NameEntry.MinSize().Height)), entry.NameEntry),
 			searchButtonPopup(w, "Current Apps Avalible", mpirsAppNames, entry.NameEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(90, entry.BackEntry.MinSize().Height)), entry.BackEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(90, entry.PlayPauseEntry.MinSize().Height)), entry.PlayPauseEntry),
-			container.New(layout.NewGridWrapLayout(fyne.NewSize(90, entry.NextEntry.MinSize().Height)), entry.NextEntry),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(110, entry.BackList.MinSize().Height)), entry.BackList),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(110, entry.PlayPauseList.MinSize().Height)), entry.PlayPauseList),
+			container.New(layout.NewGridWrapLayout(fyne.NewSize(110, entry.NextList.MinSize().Height)), entry.NextList),
 			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
 				newList := []AppControlEntry{}
@@ -560,43 +577,57 @@ func refreshAppControlList(w fyne.Window, appControlEntries *[]AppControlEntry, 
 	appControlList.Refresh()
 }
 
-func addAppVolumeEntry(w fyne.Window, appName string, appNumber *int, appEntries *[]VolumeEntry, appList *fyne.Container, pulseSessions *PulseSessions) {
+func addAppVolumeEntry(w fyne.Window, appName string, appNumber int, appEntries *[]VolumeEntry, appList *fyne.Container, pulseSessions *PulseSessions) {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("App Name")
 	nameEntry.SetText(appName)
 
-	numberEntry := widget.NewEntry()
-	numberEntry.SetPlaceHolder("Slidder")
-	if appNumber != nil {
-		if *appNumber != -1 {
-			numberEntry.SetText(fmt.Sprintf("%d", *appNumber))
-		}
+	list := []string{"none"}
+	x, err := processSerialNumber(serialNumberString)
+	if err != nil {
+		return
 	}
 
-	levelWidget := widget.NewProgressBar()
-	levelWidget.SetValue(0.5)
+	for i := range x.numOfSlidders {
+		list = append(list, fmt.Sprintf("slidder: %d", i+1))
+	}
 
-	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberEntry})
+	numberSelect := widget.NewSelect(list, func(s string) { fmt.Println(s) })
+
+	if appNumber == -1 {
+		numberSelect.Selected = "none"
+	} else {
+		numberSelect.Selected = fmt.Sprintf("Slidder: %d", appNumber+1)
+	}
+
+	*appEntries = append(*appEntries, VolumeEntry{nameEntry, numberSelect}) // numberEntry})
 	refreshAppVolumeList(w, appEntries, appList, pulseSessions)
 }
 
-func addMasterVolumeEntry(w fyne.Window, masterName string, masterNumber *int, masterEntries *[]VolumeEntry, appList *fyne.Container, pulseSessions *PulseSessions) {
+func addMasterVolumeEntry(w fyne.Window, masterName string, masterNumber int, masterEntries *[]VolumeEntry, appList *fyne.Container, pulseSessions *PulseSessions) {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("Output Name")
 	nameEntry.SetText(masterName)
 
-	numberEntry := widget.NewEntry()
-	numberEntry.SetPlaceHolder("Slidder")
-	if masterNumber != nil {
-		if *masterNumber != -1 {
-			numberEntry.SetText(fmt.Sprintf("%d", *masterNumber))
-		}
+	list := []string{"none"}
+	x, err := processSerialNumber(serialNumberString)
+	if err != nil {
+		return
 	}
 
-	levelWidget := widget.NewProgressBar()
-	levelWidget.SetValue(0.5)
+	for i := range x.numOfSlidders {
+		list = append(list, fmt.Sprintf("slidder: %d", i+1))
+	}
 
-	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberEntry})
+	numberSelect := widget.NewSelect(list, func(s string) { fmt.Println(s) })
+
+	if masterNumber == -1 {
+		numberSelect.Selected = "none"
+	} else {
+		numberSelect.Selected = fmt.Sprintf("Slidder: %d", masterNumber+1)
+	}
+
+	*masterEntries = append(*masterEntries, VolumeEntry{nameEntry, numberSelect})
 	refreshMasterVolumeList(w, masterEntries, appList, pulseSessions)
 }
 
@@ -605,29 +636,46 @@ func addAppControlEntry(w fyne.Window, appName string, controlNumbers *mpirsData
 	nameEntry.SetPlaceHolder("App Name")
 	nameEntry.SetText(appName)
 
-	// Back
-	backEntry := widget.NewEntry()
-	backEntry.SetPlaceHolder("Back")
-	// PlayPause
-	playpauseEntry := widget.NewEntry()
-	playpauseEntry.SetPlaceHolder("Play/Pause")
-	// Next
-	nextEntry := widget.NewEntry()
-	nextEntry.SetPlaceHolder("Next")
-
-	if controlNumbers != nil {
-		if controlNumbers.Back != -1 {
-			backEntry.SetText(fmt.Sprintf("%d", controlNumbers.Back))
-		}
-		if controlNumbers.PlayPause != -1 {
-			playpauseEntry.SetText(fmt.Sprintf("%d", controlNumbers.PlayPause))
-		}
-		if controlNumbers.Next != -1 {
-			nextEntry.SetText(fmt.Sprintf("%d", controlNumbers.Next))
-		}
+	list := []string{"none"}
+	x, err := processSerialNumber(serialNumberString)
+	if err != nil {
+		return
 	}
 
-	*appControlEntries = append(*appControlEntries, AppControlEntry{nameEntry, backEntry, playpauseEntry, nextEntry})
+	for i := range x.numOfButtons {
+		list = append(list, fmt.Sprintf("button: %d", i+1))
+	}
+
+	// Back
+	backList := widget.NewSelect(list, func(s string) { fmt.Println(s) })
+	// PlayPause
+	playpauseList := widget.NewSelect(list, func(s string) { fmt.Println(s) })
+	// Next
+	nextList := widget.NewSelect(list, func(s string) { fmt.Println(s) })
+
+	if controlNumbers != nil {
+		if controlNumbers.Back == -1 {
+			backList.Selected = "none"
+		} else {
+			backList.Selected = fmt.Sprintf("Button: %d", controlNumbers.Back+1)
+		}
+		if controlNumbers.PlayPause == -1 {
+			playpauseList.Selected = "none"
+		} else {
+			playpauseList.Selected = fmt.Sprintf("Button: %d", controlNumbers.PlayPause+1)
+		}
+		if controlNumbers.Next == -1 {
+			nextList.Selected = "none"
+		} else {
+			nextList.Selected = fmt.Sprintf("Button: %d", controlNumbers.Next+1)
+		}
+	} else {
+		backList.Selected = "none"
+		playpauseList.Selected = "none"
+		nextList.Selected = "none"
+	}
+
+	*appControlEntries = append(*appControlEntries, AppControlEntry{nameEntry, backList, playpauseList, nextList})
 	refreshAppControlList(w, appControlEntries, appControlList, mpirsSessions)
 }
 
@@ -667,6 +715,10 @@ func searchButtonPopup(w fyne.Window, title string, textInput []string, elementT
 
 func processSerialNumber(serialNumber string) (ControlsCount, error) {
 	var controlsCount ControlsCount
+
+	if len(serialNumber) != 13 {
+		return ControlsCount{}, fmt.Errorf("serial number is the wrong length: %d", len(serialNumber))
+	}
 
 	num, err := strconv.Atoi(serialNumber[3:5])
 	if err != nil {
