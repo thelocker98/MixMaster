@@ -16,6 +16,7 @@ import (
 )
 
 var serialNumberString string
+var SerialNumbers = make(map[string]string)
 
 type ControlsCount struct {
 	numOfSlidders int
@@ -40,7 +41,7 @@ type AppControlNumber struct {
 	Next      int
 }
 
-func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
+func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := canvas.NewText("MixMaster", color.White)
 	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
@@ -65,7 +66,7 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 			statusLabel.Alignment = fyne.TextAlignTrailing
 
 			btn := widget.NewButton(name, func() {
-				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+				w.SetContent(EditorPage(w, cfg, configPath, name, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 			})
 
 			// Each device row as a horizontal box
@@ -86,15 +87,17 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	connectedDevices.AddListener(binding.NewDataListener(func() { updateDeviceButtons() }))
 
 	addBtn := widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
-		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+		w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	scanBtn := widget.NewButtonWithIcon("Scan Devices", theme.ViewRefreshIcon(), func() {
-		ScanForDevices(cfg, deviceList, connectedDevices, devices, serialNumbers)
+		fmt.Println("Scaning for Serial Number")
+		ScanForDevices(cfg, deviceList, connectedDevices, devices, &SerialNumbers)
+		fmt.Println(SerialNumbers)
 	})
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {
-		w.SetContent(SettingsPage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+		w.SetContent(SettingsPage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	deviceBoxTitle := canvas.NewText("Devices", color.White)
@@ -116,14 +119,14 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	return content
 }
 
-func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
+func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := canvas.NewText("Device Editor", color.White) //theme.ForegroundColor())
 	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	title.Alignment = fyne.TextAlignCenter
 
 	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	// --- Get the device from config ---
@@ -255,8 +258,8 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		cfg.Devices[name] = device
 
 		cfg.SaveConfig(configPath)
-		ScanForDevices(cfg, deviceList, connectedDevices, devices, serialNumbers)
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+		ScanForDevices(cfg, deviceList, connectedDevices, devices, &SerialNumbers)
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	removeDeviceButton := widget.NewButtonWithIcon("Delete Device", theme.DeleteIcon(), func() {
@@ -271,9 +274,9 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 			func(confirmed bool) {
 				if !confirmed {
 					delete(cfg.Devices, name)
-					ScanForDevices(cfg, deviceList, connectedDevices, devices, serialNumbers)
+					ScanForDevices(cfg, deviceList, connectedDevices, devices, &SerialNumbers)
 					cfg.SaveConfig(configPath)
-					w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+					w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 				}
 			},
 			w,
@@ -291,11 +294,14 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 
 	searchButton := widget.NewButtonWithIcon("", theme.SearchIcon(), func() {
 		// declare globally so you can close it inside the list
+		if SerialNumbers == nil {
+			return
+		}
 		var d dialog.Dialog
 
 		// Create a list of serial numbers for selection
 		var serialOptions []string
-		for serial := range *serialNumbers {
+		for serial := range SerialNumbers {
 			serialOptions = append(serialOptions, serial)
 		}
 
@@ -309,7 +315,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 				btn := o.(*widget.Button)
 				serial := serialOptions[i]
 				// Display Serial Number and Name Entry
-				btn.SetText(fmt.Sprintf("%s - %s", serial, (*serialNumbers)[serial]))
+				btn.SetText(fmt.Sprintf("%s - %s", serial, (SerialNumbers)[serial]))
 				btn.OnTapped = func() {
 					// Set Serial Number Value to chosen value
 					deviceSerial.SetText(serial)
@@ -413,16 +419,16 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	)
 }
 
-func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
+func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
 		cfg.SaveConfig(configPath)
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
-		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, serialNumbers, pulseSessions, mpirsSessions))
+		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	// Theme toggle

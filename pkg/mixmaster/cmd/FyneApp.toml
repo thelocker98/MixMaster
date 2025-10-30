@@ -1,8 +1,6 @@
-Website = "https://example.com"
-
 [Details]
-Icon = "../../../assets/logo.png"
-Name = "My App"
-ID = "com.example.app"
+Icon = "assets/logo.png"
+Name = "MixMaster"
+ID = "com.locker98.mixmaster"
 Version = "1.0.0"
 Build = 1

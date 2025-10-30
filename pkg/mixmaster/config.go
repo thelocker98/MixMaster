@@ -1,6 +1,7 @@
 package mixmaster
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -39,14 +40,33 @@ func ParseConfig(path string) *Config {
 	// open the configuration yaml file
 	yamlData, err := os.ReadFile(path)
 	if err != nil {
-		log.Fatalf("error reading file: %v", err)
+		// Check if the file doesn't exist
+		if os.IsNotExist(err) {
+			// Create an empty file (or with default content)
+			defaultContent := []byte("# default config\n")
+			err = os.WriteFile(path, defaultContent, 0644)
+			if err != nil {
+				log.Fatalf("error creating file: %v", err)
+			}
+			fmt.Println("Created missing config file:", path)
+
+			// Use the default content as yamlData
+			yamlData = defaultContent
+		} else {
+			log.Fatalf("error reading file: %v", err)
+		}
 	}
 
 	// create the configuration struct
 	var cfg Config
+
 	// parse the yaml file
-	if err := yaml.Unmarshal(yamlData, &cfg); err != nil {
+	err = yaml.Unmarshal(yamlData, &cfg)
+	if err != nil {
 		log.Fatalf("error parsing yaml: %v", err)
+	}
+	if cfg.Devices == nil {
+		cfg.Devices = make(map[string]DeviceConfig)
 	}
 
 	return &cfg

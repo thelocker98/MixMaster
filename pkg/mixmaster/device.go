@@ -303,17 +303,17 @@ func HashSlice[T any](slice []T) (string, error) {
 
 func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string) {
 	// Get a list of all devices pluged into computer
+
 	dev, _ := GetDevice()
 	for serialNum, _ := range dev.HidDev {
 		if serialNum == "" {
 			break
 		}
+		(*serialNumbers)[serialNum] = "Not Used"
 		for name, device := range cfg.Devices {
 			if device.SerialNumber == serialNum {
 				(*serialNumbers)[serialNum] = name
 				break
-			} else {
-				(*serialNumbers)[serialNum] = "Not Used"
 			}
 		}
 	}
@@ -321,12 +321,11 @@ func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices
 		if serialNum == "" {
 			break
 		}
+		(*serialNumbers)[serialNum] = "Not Used"
 		for name, device := range cfg.Devices {
 			if device.SerialNumber == serialNum {
 				(*serialNumbers)[serialNum] = name
 				break
-			} else {
-				(*serialNumbers)[serialNum] = "Not Used" // portName
 			}
 		}
 	}

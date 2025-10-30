@@ -51,6 +51,8 @@ func main() {
 	// Start GUI app and send user a notification that the app has started
 	a := app.New()
 	a.SendNotification(fyne.NewNotification("Mixmaster", "App has been started"))
+	r, _ := fyne.LoadResourceFromPath("assets/logo.png")
+	a.SetIcon(r)
 	// Create a application window
 	w := a.NewWindow("MixMaster")
 
@@ -86,7 +88,7 @@ func main() {
 		fyneDeviceConnected.Append(ok)
 	}
 
-	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices, &pulseSessions, &mpirsSessions))
+	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &pulseSessions, &mpirsSessions))
 
 	go func() {
 		// Create Pulse Client
