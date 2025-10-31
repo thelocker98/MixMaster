@@ -1,15 +1,16 @@
 <div align = center>
 
-<img src="pkg/mixmaster/cmd/assets/logo.png" width="750" height="300" alt="banner">
+<img src="pkg/mixmaster/cmd/assets/logo.png" height="300" alt="banner">
 
 <br>
 
-[![Badge License]][License]
-![Badge Language]
+![License](https://img.shields.io/badge/license-apache2.0-green.svg)
+![Language](https://img.shields.io/badge/language-Go-blue.svg)
+
 
 <br>
  MixMaster is a hardware + software tool that lets you control the audio and playback of different applications on your Linux computer using a microcontroller. Adjust volumes, play, skip, and manage multiple apps—all from a single physical device.
- 
+
 </div>
 
 
@@ -25,8 +26,13 @@
 
 ## Images
 Main Screen for the app
-![Main home screen for the App](docs/img/MainScreen.png)
-![Device configuration screen](docs/img/DeviceConfig.png)
+<br>
+<img src="docs/img/MainScreen.png" alt="Main Screen" height="400" />
+
+
+Device Configuration Screen
+<br>
+<img src="docs/img/DeviceConfig.png" alt="Device Configuration Screen" height="400" />
 
 ## Requirements
 - Linux with pulse audio
