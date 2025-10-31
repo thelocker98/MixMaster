@@ -3,7 +3,10 @@ package mixmaster
 import (
 	"fmt"
 	"image/color"
+	"io"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -11,8 +14,10 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"gopkg.in/yaml.v3"
 )
 
 var serialNumberString string
@@ -53,6 +58,18 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 		deviceButtons.Objects = nil // clear old buttons
 
 		names, _ := deviceList.Get()
+		if len(names) == 0 {
+			// Each device row as a horizontal box
+			row := container.NewHBox(layout.NewSpacer(), widget.NewTextGridFromString("No Devices"), layout.NewSpacer())
+
+			fixedblock := container.NewCenter(row)
+			fixedblock.Resize(fyne.NewSize(100, 200))
+
+			deviceButtons.Add(widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
+				w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+			}))
+		}
+
 		for i, name := range names {
 			status := "Disconnected"
 			color := theme.ColorNameError
@@ -94,6 +111,7 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 		fmt.Println("Scaning for Serial Number")
 		ScanForDevices(cfg, deviceList, connectedDevices, devices, &SerialNumbers)
 		fmt.Println(SerialNumbers)
+		fmt.Println(devices)
 	})
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {
@@ -178,6 +196,94 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		addAppControlEntry(w, "", nil, appControlEntries, appControlList, mpirsSessions)
 	})
 
+	exportButton := widget.NewButtonWithIcon("Export Device", theme.DownloadIcon(), func() {
+		deviceData := cfg.Devices[name]
+
+		exportData, _ := yaml.Marshal(deviceData)
+		// Create file save dialog
+		saveDialog := dialog.NewFileSave(
+			func(uc fyne.URIWriteCloser, err error) {
+				if err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
+				if uc == nil {
+					// user cancelled
+					return
+				}
+				defer uc.Close()
+
+				// Write data to chosen file
+				_, err = uc.Write([]byte(exportData))
+				if err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
+
+				// Show confirmation
+				dialog.ShowInformation("Export Complete", "File saved successfully!", w)
+			}, w,
+		)
+
+		// Export name
+		saveDialog.SetFileName(name + ".yaml")
+
+		// Optionally, restrict file types (e.g., only text files)
+		saveDialog.SetFilter(storage.NewExtensionFileFilter([]string{".yaml"}))
+
+		saveDialog.Show()
+	})
+
+	importButton := widget.NewButtonWithIcon("Import Device", theme.UploadIcon(), func() {
+		// Create file open dialog
+		openDialog := dialog.NewFileOpen(func(uc fyne.URIReadCloser, err error) {
+			if err != nil {
+				dialog.ShowError(err, w)
+				return
+			}
+			if uc == nil {
+				// user cancelled
+				return
+			}
+			defer uc.Close()
+
+			// Extract file name (without extension) to use as device name
+			fileURI := uc.URI()
+			fileName := filepath.Base(fileURI.Path())
+			deviceName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+			// Read YAML data
+			data, err := io.ReadAll(uc)
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("failed to read file: %w", err), w)
+				return
+			}
+
+			// Unmarshal YAML into a device struct
+			var device DeviceConfig
+			err = yaml.Unmarshal(data, &device)
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("invalid YAML format: %w", err), w)
+				return
+			}
+
+			// Append or overwrite in config
+			cfg.Devices[deviceName] = device
+
+			// Show confirmation
+			dialog.ShowInformation("Import Complete", fmt.Sprintf("Device '%s' imported successfully!", deviceName), w)
+
+			// save and refresh home screen
+			cfg.SaveConfig(configPath)
+			ScanForDevices(cfg, deviceList, connectedDevices, devices, &SerialNumbers)
+			w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+		}, w)
+
+		// Restrict file types
+		openDialog.SetFilter(storage.NewExtensionFileFilter([]string{".yaml"}))
+		openDialog.Show()
+	})
+
 	saveButton := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
 		_, err := processSerialNumber(deviceSerial.Text)
 		if deviceName.Text == "" || deviceSerial.Text == "" || err != nil {
@@ -192,6 +298,7 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 		if newName != name {
 			cfg.Devices[newName] = cfg.Devices[name]
 			delete(cfg.Devices, name)
+			delete(*devices, name)
 			name = newName
 		}
 
@@ -410,9 +517,17 @@ func EditorPage(w fyne.Window, cfg *Config, configPath *string, name string, dev
 	scrollableList := container.NewVScroll(maxWidthContent)
 	//scrollableList.SetMinSize(fyne.NewSize(400, 400))
 
+	var exportimportButton *widget.Button
+
+	if name == "" {
+		exportimportButton = importButton
+	} else {
+		exportimportButton = exportButton
+	}
+
 	return container.NewBorder(
 		container.NewHBox(backBtn, layout.NewSpacer(), title, layout.NewSpacer(), removeDeviceButton),
-		container.NewHBox(layout.NewSpacer(), saveButton),
+		container.NewHBox(exportimportButton, layout.NewSpacer(), saveButton),
 		nil,
 		nil,
 		scrollableList,
