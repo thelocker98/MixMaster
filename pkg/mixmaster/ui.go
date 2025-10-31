@@ -65,9 +65,9 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 			fixedblock := container.NewCenter(row)
 			fixedblock.Resize(fyne.NewSize(100, 200))
 
-			deviceButtons.Add(widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
+			deviceButtons.Add(container.NewHBox(layout.NewSpacer(), widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
 				w.SetContent(EditorPage(w, cfg, configPath, "", deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
-			}))
+			}), layout.NewSpacer()))
 		}
 
 		for i, name := range names {
@@ -108,10 +108,7 @@ func DevicePage(w fyne.Window, cfg *Config, configPath *string, deviceList bindi
 	})
 
 	scanBtn := widget.NewButtonWithIcon("Scan Devices", theme.ViewRefreshIcon(), func() {
-		fmt.Println("Scaning for Serial Number")
 		ScanForDevices(cfg, deviceList, connectedDevices, devices, &SerialNumbers)
-		fmt.Println(SerialNumbers)
-		fmt.Println(devices)
 	})
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {

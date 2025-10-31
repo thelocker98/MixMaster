@@ -1,5 +1,5 @@
 Devices:
-    Serial  Device:
+    4 Slider Audio Mixer:
         pulse-app-slidders:
             brave: 0
             unmapped: 1
@@ -7,10 +7,6 @@ Devices:
         pulse-master-slidders:
             master: 3
         serialNumber: S0S04B00T0001
-    test2:
-        pulse-master-slidders:
-            master: 1
-        serialNumber: H0S02B03T0001
 app:
     theme: ""
     notifications: false
