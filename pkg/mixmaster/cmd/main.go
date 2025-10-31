@@ -1,3 +1,5 @@
+//go:generate fyne bundle -o bundled.go assets/logo.png
+
 package main
 
 import (
@@ -51,8 +53,9 @@ func main() {
 	// Start GUI app and send user a notification that the app has started
 	a := app.New()
 	a.SendNotification(fyne.NewNotification("Mixmaster", "App has been started"))
-	r, _ := fyne.LoadResourceFromPath("assets/logo.png")
-	a.SetIcon(r)
+
+	//r, _ := fyne.LoadResourceFromPath("assets/logo.png")
+	a.SetIcon(resourceLogoPng)
 	// Create a application window
 	w := a.NewWindow("MixMaster")
 

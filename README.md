@@ -1,6 +1,6 @@
 <div align = center>
 
-<img src="pkg/mixmaster/cmd/assets/logo.png" height="300" alt="banner">
+<img src="docs/img/projectlogo.png" height="300" alt="banner">
 
 <br>
 
