@@ -1,19 +1,14 @@
 <div align = center>
+    <img src="docs/img/projectlogo2.png" height="300" alt="banner">
 
-<img src="docs/img/projectlogo.png" height="300" alt="banner">
+    <br>
+    ![License](https://img.shields.io/badge/license-apache2.0-green.svg)
+    ![Language](https://img.shields.io/badge/language-Go-blue.svg)
+    <br>
 
-<br>
-
-![License](https://img.shields.io/badge/license-apache2.0-green.svg)
-![Language](https://img.shields.io/badge/language-Go-blue.svg)
-
-
-<br>
- MixMaster is a hardware + software tool that lets you control the audio and playback of different applications on your Linux computer using a microcontroller. Adjust volumes, play, skip, and manage multiple apps—all from a single physical device.
+    MixMaster is a hardware + software tool that lets you control the audio and playback of different applications on your Linux computer using a microcontroller. Adjust volumes, play, skip, and manage multiple apps—all from a single physical device.
 
 </div>
-
-
 
 
 ## Features
@@ -25,12 +20,11 @@
 - Support for control over HID for a more robust connection with using the ATmega32U4 Microcontroller
 
 ## Images
-Main Screen for the app
+Main Screen for the app:
 <br>
 <img src="docs/img/MainScreen.png" alt="Main Screen" height="400" />
 
-
-Device Configuration Screen
+Device Configuration Screen:
 <br>
 <img src="docs/img/DeviceConfig.png" alt="Device Configuration Screen" height="400" />
 
