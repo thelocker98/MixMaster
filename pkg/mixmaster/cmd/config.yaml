@@ -9,4 +9,6 @@ Devices:
         serialNumber: S0S04B00T0001
 app:
     theme: ""
+    auto_start: false
+    launch_gui_on_start: false
     notifications: false

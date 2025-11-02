@@ -26,6 +26,8 @@ type DeviceConfig struct {
 }
 type AppConfig struct {
 	Theme         string `yaml:"theme"`
+	AutoStart     bool   `yaml:"auto_start"`
+	LaunchGUI     bool   `yaml:"launch_gui_on_start"`
 	Notifications bool   `yaml:"notifications"`
 }
 

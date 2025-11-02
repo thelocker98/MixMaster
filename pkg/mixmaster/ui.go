@@ -543,47 +543,20 @@ func SettingsPage(w fyne.Window, cfg *Config, configPath *string, deviceList bin
 		w.SetContent(DevicePage(w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
-	// Theme toggle
-	themeToggle := widget.NewCheck("Dark Mode", func(value bool) {
-		if value {
-			fyne.CurrentApp().Settings().SetTheme(theme.DarkTheme())
-		} else {
-			fyne.CurrentApp().Settings().SetTheme(theme.LightTheme())
-		}
-	})
-
-	// Create card for settings
-	settingsCard := container.NewVBox(
-		widget.NewLabel("Appearance"),
-		widget.NewSeparator(),
-		themeToggle,
-	)
+	startupTitle := canvas.NewText("Startup Settings", color.White)
+	startupTitle.TextSize = 24
+	startupTitle.TextStyle = fyne.TextStyle{Bold: true}
+	startupTitle.Alignment = fyne.TextAlignCenter
 
 	// Wrap in padded, centered, max-width container
 	maxWidthContent := container.NewPadded(
 		container.NewCenter(
-			container.NewMax(
-				&fyne.Container{
-					Layout: layout.NewMaxLayout(),
-					Objects: []fyne.CanvasObject{
-						widget.NewLabel(""),
-					},
-				},
-				settingsCard,
+			container.NewVBox(
+				startupTitle,
+				widget.NewSeparator(),
 			),
 		),
 	)
-
-	// Set max width
-	if len(maxWidthContent.Objects) > 0 {
-		if centerContainer, ok := maxWidthContent.Objects[0].(*fyne.Container); ok {
-			if maxContainer, ok := centerContainer.Objects[0].(*fyne.Container); ok {
-				if len(maxContainer.Objects) > 0 {
-					maxContainer.Objects[0].(*fyne.Container).Objects[0].Resize(fyne.NewSize(600, 1))
-				}
-			}
-		}
-	}
 
 	settingscontent := container.NewVScroll(maxWidthContent)
 
