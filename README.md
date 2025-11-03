@@ -42,7 +42,7 @@ Device Configuration Screen:
 
 
 ## Download and installation
-- Go to the [releases page](https://github.com/thelocker98/MixMaster/releases) and download the [latest version](https://github.com/thelocker98/MixMaster/releases/latest)'s executable `mixmaster`
+- Go to the [releases page](https://github.com/thelocker98/MixMaster/releases) and download the [latest version](https://github.com/thelocker98/MixMaster/releases/latest) of the executable `MixMaster`
 - Once the file is downloaded you can put it in a convenient place and then launch it by double clicking on it.
 
 ## Contributing
