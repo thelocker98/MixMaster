@@ -1,5 +1,5 @@
 <div align = center>
-  
+
 <img src="docs/img/projectlogo2.png" height="300" alt="banner">
 
 <br>
@@ -40,6 +40,10 @@ Device Configuration Screen:
 2. Configure the device using the MixMaster App
 3. Start making you audio experience better
 
+
+## Download and installation
+- Go to the [releases page](https://github.com/thelocker98/MixMaster/releases) and download the [latest version](https://github.com/thelocker98/MixMaster/releases/latest)'s executable `mixmaster`
+- Once the file is downloaded you can put it in a convenient place and then launch it by double clicking on it.
 
 ## Contributing
 Contributions are welcome! If you want to help develop MixMaster, feel free to submit issues or pull requests.

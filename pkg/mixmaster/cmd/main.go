@@ -12,7 +12,7 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
-	"gitea.locker98.com/locker98/Mixmaster/pkg/mixmaster"
+	"github.com/thelocker98/MixMaster/pkg/mixmaster"
 )
 
 // Setup CLI Flags and Default Values
@@ -52,7 +52,9 @@ func main() {
 
 	// Start GUI app and send user a notification that the app has started
 	a := app.New()
-	a.SendNotification(fyne.NewNotification("Mixmaster", "App has been started"))
+	if cfg.App.Notifications {
+		a.SendNotification(fyne.NewNotification("Mixmaster", "App has been started"))
+	}
 
 	//r, _ := fyne.LoadResourceFromPath("assets/logo.png")
 	a.SetIcon(resourceLogoPng)
@@ -67,7 +69,11 @@ func main() {
 			}),
 			// Scan for devices on demand
 			fyne.NewMenuItem("Device Scan", func() {
-				mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
+				pastNum := len(devices)
+				mixmaster.ScanForDevices(a, cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
+				if cfg.App.Notifications && len(devices) > pastNum {
+					a.SendNotification(fyne.NewNotification("Mixmaster", "Discovered New Device"))
+				}
 			}))
 
 		desk.SetSystemTrayMenu(m)
@@ -91,7 +97,7 @@ func main() {
 		fyneDeviceConnected.Append(ok)
 	}
 
-	w.SetContent(mixmaster.DevicePage(w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &pulseSessions, &mpirsSessions))
+	w.SetContent(mixmaster.DevicePage(a, w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &pulseSessions, &mpirsSessions))
 
 	go func() {
 		// Create Pulse Client
@@ -106,7 +112,7 @@ func main() {
 			panic("could not creating mpirs client")
 		}
 
-		mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
+		mixmaster.ScanForDevices(a, cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 
 		for {
 			var deviceData []*mixmaster.ParsedAudioData
@@ -116,9 +122,11 @@ func main() {
 
 				data, err := device.Pull(&test)
 				if err != nil {
-					a.SendNotification(fyne.NewNotification("Mixmaster", "Lost Connection with Device"))
+					if cfg.App.Notifications {
+						a.SendNotification(fyne.NewNotification("Mixmaster", "Lost Connection with Device"))
+					}
 					delete(devices, deviceName)
-					mixmaster.ScanForDevices(cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
+					mixmaster.ScanForDevices(a, cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 					continue
 				}
 				// Add Data to the device data array
@@ -155,6 +163,9 @@ func main() {
 	}()
 
 	// Start GUI
-	//a.Run()
-	w.ShowAndRun()
+	if !cfg.App.LaunchGUIOnStart {
+		a.Run()
+	} else {
+		w.ShowAndRun()
+	}
 }

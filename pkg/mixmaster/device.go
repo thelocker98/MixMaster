@@ -9,6 +9,7 @@ import (
 	"math"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/data/binding"
 	hid "github.com/sstallion/go-hid"
 	"go.bug.st/serial"
@@ -301,8 +302,9 @@ func HashSlice[T any](slice []T) (string, error) {
 	return hex.EncodeToString(h[:]), nil
 }
 
-func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string) {
+func ScanForDevices(a fyne.App, cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string) {
 	// Get a list of all devices pluged into computer
+	pastNum := len(*devices)
 
 	dev, _ := GetDevice()
 	for serialNum, _ := range dev.HidDev {
@@ -344,5 +346,8 @@ func ScanForDevices(cfg *Config, deviceList binding.StringList, connectedDevices
 		deviceList.Append(name)
 		_, ok := (*devices)[name]
 		connectedDevices.Append(ok)
+	}
+	if cfg.App.Notifications && len(*devices) > pastNum {
+		a.SendNotification(fyne.NewNotification("Mixmaster", "Discovered New Device"))
 	}
 }

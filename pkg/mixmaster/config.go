@@ -25,10 +25,9 @@ type DeviceConfig struct {
 	SerialNumber  string `yaml:"serialNumber"`
 }
 type AppConfig struct {
-	Theme         string `yaml:"theme"`
-	AutoStart     bool   `yaml:"auto_start"`
-	LaunchGUI     bool   `yaml:"launch_gui_on_start"`
-	Notifications bool   `yaml:"notifications"`
+	Theme            string `yaml:"theme"`
+	LaunchGUIOnStart bool   `yaml:"launch_gui_on_start"`
+	Notifications    bool   `yaml:"notifications"`
 }
 
 // This struct stores all the individual devices and groups togeather all the previous structs into a map
@@ -45,7 +44,13 @@ func ParseConfig(path string) *Config {
 		// Check if the file doesn't exist
 		if os.IsNotExist(err) {
 			// Create an empty file (or with default content)
-			defaultContent := []byte("# default config\n")
+			defaultContent, err := yaml.Marshal(Config{
+				App: AppConfig{
+					Notifications:    true,
+					LaunchGUIOnStart: true,
+				},
+			})
+
 			err = os.WriteFile(path, defaultContent, 0644)
 			if err != nil {
 				log.Fatalf("error creating file: %v", err)
