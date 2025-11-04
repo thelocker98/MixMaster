@@ -46,7 +46,17 @@ type AppControlNumber struct {
 	Next      int
 }
 
-func DevicePage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
+var cfgGlobal *Config
+var configPathGlobal *string
+
+
+func InitializeUI(cfg *Config, configPath *string) {
+	cfgGlobal = cfg
+	configPathGlobal = configPath
+	
+}
+
+func DevicePage(a fyne.App, w fyne.Window, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := canvas.NewText("MixMaster", color.White)
 	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
@@ -66,7 +76,7 @@ func DevicePage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, devi
 			fixedblock.Resize(fyne.NewSize(100, 200))
 
 			deviceButtons.Add(container.NewHBox(layout.NewSpacer(), widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
-				w.SetContent(EditorPage(a, w, cfg, configPath, "", deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+				w.SetContent(EditorPage(a, w, "", deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 			}), layout.NewSpacer()))
 		}
 
@@ -83,7 +93,7 @@ func DevicePage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, devi
 			statusLabel.Alignment = fyne.TextAlignTrailing
 
 			btn := widget.NewButton(name, func() {
-				w.SetContent(EditorPage(a, w, cfg, configPath, name, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+				w.SetContent(EditorPage(a, w, name, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 			})
 
 			// Each device row as a horizontal box
@@ -104,15 +114,15 @@ func DevicePage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, devi
 	connectedDevices.AddListener(binding.NewDataListener(func() { updateDeviceButtons() }))
 
 	addBtn := widget.NewButtonWithIcon("Add Device", theme.ContentAddIcon(), func() {
-		w.SetContent(EditorPage(a, w, cfg, configPath, "", deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+		w.SetContent(EditorPage(a, w, "", deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	scanBtn := widget.NewButtonWithIcon("Scan Devices", theme.ViewRefreshIcon(), func() {
-		ScanForDevices(a, cfg, deviceList, connectedDevices, devices, &SerialNumbers)
+		ScanForDevices(a, cfgGlobal, deviceList, connectedDevices, devices, &SerialNumbers)
 	})
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {
-		w.SetContent(SettingsPage(a, w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+		w.SetContent(SettingsPage(a, w, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	deviceBoxTitle := canvas.NewText("Devices", color.White)
@@ -134,18 +144,18 @@ func DevicePage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, devi
 	return content
 }
 
-func EditorPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
+func EditorPage(a fyne.App, w fyne.Window, name string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := canvas.NewText("Device Editor", color.White) //theme.ForegroundColor())
 	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	title.Alignment = fyne.TextAlignCenter
 
 	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
-		w.SetContent(DevicePage(a, w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+		w.SetContent(DevicePage(a, w, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	// --- Get the device from config ---
-	device, ok := cfg.Devices[name]
+	device, ok := cfgGlobal.Devices[name]
 	if !ok {
 		device = DeviceConfig{}
 	}
@@ -194,7 +204,7 @@ func EditorPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, name
 	})
 
 	exportButton := widget.NewButtonWithIcon("Export Device", theme.DownloadIcon(), func() {
-		deviceData := cfg.Devices[name]
+		deviceData := cfgGlobal.Devices[name]
 
 		exportData, _ := yaml.Marshal(deviceData)
 		// Create file save dialog
@@ -265,15 +275,15 @@ func EditorPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, name
 			}
 
 			// Append or overwrite in config
-			cfg.Devices[deviceName] = device
+			cfgGlobal.Devices[deviceName] = device
 
 			// Show confirmation
 			dialog.ShowInformation("Import Complete", fmt.Sprintf("Device '%s' imported successfully!", deviceName), w)
 
 			// save and refresh home screen
-			cfg.SaveConfig(configPath)
-			ScanForDevices(a, cfg, deviceList, connectedDevices, devices, &SerialNumbers)
-			w.SetContent(DevicePage(a, w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+			cfgGlobal.SaveConfig(configPathGlobal)
+			ScanForDevices(a, cfgGlobal, deviceList, connectedDevices, devices, &SerialNumbers)
+			w.SetContent(DevicePage(a, w, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 		}, w)
 
 		// Restrict file types
@@ -293,8 +303,8 @@ func EditorPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, name
 
 		// update device name if changed
 		if newName != name {
-			cfg.Devices[newName] = cfg.Devices[name]
-			delete(cfg.Devices, name)
+			cfgGlobal.Devices[newName] = cfgGlobal.Devices[name]
+			delete(cfgGlobal.Devices, name)
 			delete(*devices, name)
 			name = newName
 		}
@@ -359,11 +369,11 @@ func EditorPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, name
 		}
 		device.AppMediaControls = newControlsApps
 		device.SerialNumber = deviceSerial.Text
-		cfg.Devices[name] = device
+		cfgGlobal.Devices[name] = device
 
-		cfg.SaveConfig(configPath)
-		ScanForDevices(a, cfg, deviceList, connectedDevices, devices, &SerialNumbers)
-		w.SetContent(DevicePage(a, w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+		cfgGlobal.SaveConfig(configPathGlobal)
+		ScanForDevices(a, cfgGlobal, deviceList, connectedDevices, devices, &SerialNumbers)
+		w.SetContent(DevicePage(a, w, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	removeDeviceButton := widget.NewButtonWithIcon("Delete Device", theme.DeleteIcon(), func() {
@@ -377,10 +387,10 @@ func EditorPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, name
 			content,
 			func(confirmed bool) {
 				if !confirmed {
-					delete(cfg.Devices, name)
-					ScanForDevices(a, cfg, deviceList, connectedDevices, devices, &SerialNumbers)
-					cfg.SaveConfig(configPath)
-					w.SetContent(DevicePage(a, w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+					delete(cfgGlobal.Devices, name)
+					ScanForDevices(a, cfgGlobal, deviceList, connectedDevices, devices, &SerialNumbers)
+					cfgGlobal.SaveConfig(configPathGlobal)
+					w.SetContent(DevicePage(a, w, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 				}
 			},
 			w,
@@ -531,16 +541,16 @@ func EditorPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, name
 	)
 }
 
-func SettingsPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
+func SettingsPage(a fyne.App, w fyne.Window, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
-		cfg.SaveConfig(configPath)
-		w.SetContent(DevicePage(a, w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+		cfgGlobal.SaveConfig(configPathGlobal)
+		w.SetContent(DevicePage(a, w, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
-		w.SetContent(DevicePage(a, w, cfg, configPath, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
+		w.SetContent(DevicePage(a, w, deviceList, connectedDevices, devices, pulseSessions, mpirsSessions))
 	})
 
 	startupTitle := canvas.NewText("Startup Settings", color.White)
@@ -554,14 +564,14 @@ func SettingsPage(a fyne.App, w fyne.Window, cfg *Config, configPath *string, de
 	miscTitle.Alignment = fyne.TextAlignCenter
 
 	autoStartCheck := widget.NewCheck("Lauch GUI on application Start", func(checked bool) {
-		cfg.App.LaunchGUIOnStart = checked
+		cfgGlobal.App.LaunchGUIOnStart = checked
 	})
-	autoStartCheck.Checked = cfg.App.LaunchGUIOnStart
+	autoStartCheck.Checked = cfgGlobal.App.LaunchGUIOnStart
 
 	notificationsEnCheck := widget.NewCheck("Enable Notifications", func(checked bool) {
-		cfg.App.Notifications = checked
+		cfgGlobal.App.Notifications = checked
 	})
-	notificationsEnCheck.Checked = cfg.App.Notifications
+	notificationsEnCheck.Checked = cfgGlobal.App.Notifications
 
 	// Wrap in padded, centered, max-width container
 	maxWidthContent := container.NewPadded(

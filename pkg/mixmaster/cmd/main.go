@@ -61,6 +61,9 @@ func main() {
 	// Create a application window
 	w := a.NewWindow("MixMaster")
 
+	// InitializeUI
+	mixmaster.InitializeUI(cfg, configPath)
+
 	// Check if the app is running on a desktop and start system tray
 	if desk, ok := a.(desktop.App); ok {
 		m := fyne.NewMenu("MixMaster",
@@ -97,7 +100,7 @@ func main() {
 		fyneDeviceConnected.Append(ok)
 	}
 
-	w.SetContent(mixmaster.DevicePage(a, w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &pulseSessions, &mpirsSessions))
+	w.SetContent(mixmaster.DevicePage(a, w, fyneDeviceList, fyneDeviceConnected, &devices, &pulseSessions, &mpirsSessions))
 
 	go func() {
 		// Create Pulse Client
