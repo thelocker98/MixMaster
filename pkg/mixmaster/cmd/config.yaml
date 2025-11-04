@@ -7,6 +7,19 @@ Devices:
         pulse-master-slidders:
             master: 3
         serialNumber: S0S04B00T0001
+    Test:
+        pulse-app-slidders:
+            vivaldi-bin: 0
+        app-media-control:
+            brave:
+                back: -1
+                playpause: 0
+                next: -1
+            vivaldi:
+                back: -1
+                playpause: 1
+                next: -1
+        serialNumber: H0S02B03T0001
 app:
     theme: ""
     launch_gui_on_start: true
