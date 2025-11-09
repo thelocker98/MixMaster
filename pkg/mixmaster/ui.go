@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/jfreymuth/pulse/proto"
 	"gopkg.in/yaml.v3"
 )
 
@@ -451,8 +452,17 @@ func EditorPage(name string) fyne.CanvasObject {
 			},
 		)
 
+		buttonRefresh := widget.NewButtonWithIcon("Scan for Devices", theme.ViewRefreshIcon(), func() {
+			ScanForDevices(app, cfgGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
+			serialOptions = serialOptions[:0]
+			for serial := range SerialNumbers {
+				serialOptions = append(serialOptions, serial)
+			}
+			serialList.Refresh()
+		})
+
 		// Create and show the dialog
-		d = dialog.NewCustom("Avalible Devices", "Close", serialList, window)
+		d = dialog.NewCustom("Available Devices", "Close", container.NewBorder(nil, buttonRefresh, nil, nil, serialList), window)
 		d.Resize(fyne.NewSize(400, 300))
 		d.Show()
 	})
@@ -616,14 +626,13 @@ func refreshAppVolumeList(w fyne.Window, appVolumeEntries *[]VolumeEntry, appVol
 	for name, _ := range pulseSessions.Apps {
 		appNames = append(appNames, name)
 	}
-	appNames = append(appNames, "unmapped")
 
 	for _, e := range *appVolumeEntries {
 		entry := e
 
 		row := container.NewHBox(
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
-			searchButtonPopup(w, "Current Apps Avalible", appNames, entry.NameEntry),
+			searchButtonPopup(w, "Current Apps Avalible", &pulseSessions.Apps, entry.NameEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(290, entry.NumberList.MinSize().Height)), entry.NumberList),
 			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
@@ -656,7 +665,7 @@ func refreshMasterVolumeList(w fyne.Window, masterVolumeEntries *[]VolumeEntry, 
 		entry := e
 		row := container.NewHBox(
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(200, entry.NameEntry.MinSize().Height)), entry.NameEntry),
-			searchButtonPopup(w, "Current Outputs Avalible", outputNames, entry.NameEntry),
+			searchButtonPopup(w, "Current Outputs Avalible", &pulseSessions.Masters, entry.NameEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(290, entry.NumberList.MinSize().Height)), entry.NumberList),
 			widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 				// remove from slice
@@ -678,16 +687,12 @@ func refreshMasterVolumeList(w fyne.Window, masterVolumeEntries *[]VolumeEntry, 
 
 func refreshAppControlList(w fyne.Window, appControlEntries *[]AppControlEntry, appControlList *fyne.Container, mpirsSessions *MpirsSessions) {
 	children := []fyne.CanvasObject{}
-	mpirsAppNames := []string{}
-	for name, _ := range *mpirsSessions {
-		mpirsAppNames = append(mpirsAppNames, name)
-	}
 
 	for _, e := range *appControlEntries {
 		entry := e
 		row := container.NewHBox(
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(150, entry.NameEntry.MinSize().Height)), entry.NameEntry),
-			searchButtonPopup(w, "Current Apps Avalible", mpirsAppNames, entry.NameEntry),
+			searchButtonPopup(w, "Current Apps Avalible", mpirsSessions, entry.NameEntry),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(110, entry.BackList.MinSize().Height)), entry.BackList),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(110, entry.PlayPauseList.MinSize().Height)), entry.PlayPauseList),
 			container.New(layout.NewGridWrapLayout(fyne.NewSize(110, entry.NextList.MinSize().Height)), entry.NextList),
@@ -811,7 +816,33 @@ func addAppControlEntry(w fyne.Window, appName string, controlNumbers *mpirsData
 	refreshAppControlList(w, appControlEntries, appControlList, mpirsSessions)
 }
 
-func searchButtonPopup(w fyne.Window, title string, textInput []string, elementToChange *widget.Entry) *widget.Button {
+func searchButtonPopup[T *MpirsSessions | *map[string]*proto.GetSinkInfoReply | *map[string][]*proto.GetSinkInputInfoReply](w fyne.Window, title string, dataIn T, elementToChange *widget.Entry) *widget.Button {
+	textInput := []string{}
+
+	switch v := any(dataIn).(type) {
+	case *map[string]*proto.GetSinkInfoReply:
+		for name := range *v {
+			textInput = append(textInput, name)
+		}
+		textInput = append(textInput, "master")
+
+	case *map[string][]*proto.GetSinkInputInfoReply:
+		for name := range *v {
+			textInput = append(textInput, name)
+		}
+		textInput = append(textInput, "unmapped")
+
+	case *MpirsSessions:
+		// assuming MpirsSessions has a map field you want to iterate
+		for name := range *v {
+			textInput = append(textInput, name)
+		}
+
+	default:
+		// should never happen
+		return nil
+	}
+
 	searchButton := widget.NewButtonWithIcon("", theme.SearchIcon(), func() {
 		// declare globally so you can close it inside the list
 		var d dialog.Dialog
@@ -836,8 +867,36 @@ func searchButtonPopup(w fyne.Window, title string, textInput []string, elementT
 			},
 		)
 
+		refreshButton := widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), func() {
+			textInput = textInput[:0]
+
+			switch v := any(dataIn).(type) {
+			case *map[string]*proto.GetSinkInfoReply:
+				for name := range *v {
+					textInput = append(textInput, name)
+				}
+				textInput = append(textInput, "master")
+
+			case *map[string][]*proto.GetSinkInputInfoReply:
+				for name := range *v {
+					textInput = append(textInput, name)
+				}
+				textInput = append(textInput, "unmapped")
+
+			case *MpirsSessions:
+				// assuming MpirsSessions has a map field you want to iterate
+				for name := range *v {
+					textInput = append(textInput, name)
+				}
+
+			default:
+				// should never happen
+			}
+			serialList.Refresh()
+		})
+
 		// Create and show the dialog
-		d = dialog.NewCustom(title, "Close", serialList, w)
+		d = dialog.NewCustom(title, "Close", container.NewBorder(nil, refreshButton, nil, nil, serialList), w)
 		d.Resize(fyne.NewSize(400, 300))
 		d.Show()
 	})
