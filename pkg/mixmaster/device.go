@@ -1,6 +1,7 @@
 package mixmaster
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,7 +13,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/data/binding"
 	hid "github.com/sstallion/go-hid"
-	"go.bug.st/serial"
+	"github.com/tarm/serial"
+	serialenum "go.bug.st/serial"
 )
 
 var DataData string
@@ -85,7 +87,7 @@ func ListHIDDevices() []string {
 }
 
 func ListSerialDevices() []string {
-	ports, err := serial.GetPortsList()
+	ports, err := serialenum.GetPortsList()
 
 	if err != nil {
 		return nil
@@ -142,24 +144,41 @@ func GetDevice() (*Device, error) {
 	serialDeviceList := ListSerialDevices()
 
 	for _, port := range serialDeviceList {
-		p, err := serial.Open(port, &serial.Mode{BaudRate: 115200})
+		c := &serial.Config{
+			Name:        port,
+			Baud:        115200,
+			ReadTimeout: time.Millisecond * 500,
+		}
+
+		p, err := serial.OpenPort(c)
 		if err != nil {
 			fmt.Println("error: ", err)
 			continue
 		}
 
-		buff := make([]byte, 512)
+		_, err = p.Write([]byte("H"))
+		if err != nil {
+			return nil, err
+		}
 
-		p.SetReadTimeout(300 * time.Millisecond)
-		n, err := p.Read(buff)
-		if err != nil || n == 0 {
-			p.Close()
-			continue
+		buff := make([]byte, 512)
+		var all []byte
+
+		for {
+			n, err := p.Read(buff)
+			if err != nil {
+				break
+			}
+			if n > 0 {
+				all = append(all, buff[:n]...)
+				if bytes.Contains(all, []byte("}")) {
+					break
+				}
+			}
 		}
 
 		var cleanData []byte
-
-		for _, value := range buff[:n] {
+		for _, value := range all {
 			cleanData = append(cleanData, value)
 			if value == '}' {
 				break
@@ -207,13 +226,19 @@ func ReadDeviceDataHID(d *hid.Device, cfg *DeviceConfig) (*DeviceData, error) {
 	}
 
 	values := parseDeviceData(clean, cfg.SlidderInvert)
+	fmt.Println(values)
 
 	return values, nil
 }
 
-func ReadDeviceDataSerial(p serial.Port, cfg *DeviceConfig) (*DeviceData, error) {
+func ReadDeviceDataSerial(p serialenum.Port, cfg *DeviceConfig) (*DeviceData, error) {
 	var data []byte
 	buf := make([]byte, 1)
+
+	_, err := p.Write([]byte{'H'})
+	if err != nil {
+		return nil, err
+	}
 
 	for {
 		n, err := p.Read(buf)

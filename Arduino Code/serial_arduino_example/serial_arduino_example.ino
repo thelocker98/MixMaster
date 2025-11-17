@@ -31,8 +31,14 @@ void setup() {
 }
 
 void loop() {
-  delay(100);
-  sendData();
+  if (Serial.available() > 0) {       // Check if data is available
+    char incoming = Serial.read();    // Read the incoming byte
+
+    if (incoming == 'H') {            // If it's 'H', send data
+      delay(20);
+      sendData();
+    }
+  }
 }
 
 
