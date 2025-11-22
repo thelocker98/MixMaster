@@ -18,6 +18,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/jfreymuth/pulse/proto"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -54,10 +55,11 @@ var connectedDevicesGlobal binding.BoolList
 var devicesGlobal *map[string]*MixMasterInstance
 var pulseSessionsGlobal *PulseSessions
 var mpirsSessionsGlobal *MpirsSessions
+var loggerGlobal *zap.SugaredLogger
 var app fyne.App
 var window fyne.Window
 
-func InitializeUI(a fyne.App, w fyne.Window, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) {
+func InitializeUI(a fyne.App, w fyne.Window, logger *zap.SugaredLogger, cfg *Config, configPath *string, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, pulseSessions *PulseSessions, mpirsSessions *MpirsSessions) {
 	cfgGlobal = cfg
 	configPathGlobal = configPath
 	deviceListGlobal = deviceList
@@ -67,6 +69,7 @@ func InitializeUI(a fyne.App, w fyne.Window, cfg *Config, configPath *string, de
 	mpirsSessionsGlobal = mpirsSessions
 	app = a
 	window = w
+	loggerGlobal = logger
 }
 
 func DevicePage() fyne.CanvasObject {
@@ -131,7 +134,7 @@ func DevicePage() fyne.CanvasObject {
 	})
 
 	scanBtn := widget.NewButtonWithIcon("Scan Devices", theme.ViewRefreshIcon(), func() {
-		ScanForDevices(app, cfgGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
+		ScanForDevices(app, cfgGlobal, loggerGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
 	})
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), func() {
@@ -295,7 +298,7 @@ func EditorPage(name string) fyne.CanvasObject {
 
 			// save and refresh home screen
 			cfgGlobal.SaveConfig(configPathGlobal)
-			ScanForDevices(app, cfgGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
+			ScanForDevices(app, cfgGlobal, loggerGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
 			window.SetContent(DevicePage())
 		}, window)
 
@@ -385,7 +388,7 @@ func EditorPage(name string) fyne.CanvasObject {
 		cfgGlobal.Devices[name] = device
 
 		cfgGlobal.SaveConfig(configPathGlobal)
-		ScanForDevices(app, cfgGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
+		ScanForDevices(app, cfgGlobal, loggerGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
 		window.SetContent(DevicePage())
 	})
 
@@ -401,7 +404,7 @@ func EditorPage(name string) fyne.CanvasObject {
 			func(confirmed bool) {
 				if !confirmed {
 					delete(cfgGlobal.Devices, name)
-					ScanForDevices(app, cfgGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
+					ScanForDevices(app, cfgGlobal, loggerGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
 					cfgGlobal.SaveConfig(configPathGlobal)
 					window.SetContent(DevicePage())
 				}
@@ -453,7 +456,7 @@ func EditorPage(name string) fyne.CanvasObject {
 		)
 
 		buttonRefresh := widget.NewButtonWithIcon("Scan for Devices", theme.ViewRefreshIcon(), func() {
-			ScanForDevices(app, cfgGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
+			ScanForDevices(app, cfgGlobal, loggerGlobal, deviceListGlobal, connectedDevicesGlobal, devicesGlobal, &SerialNumbers)
 			serialOptions = serialOptions[:0]
 			for serial := range SerialNumbers {
 				serialOptions = append(serialOptions, serial)

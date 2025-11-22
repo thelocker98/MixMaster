@@ -2,8 +2,7 @@ package mixmaster
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
+
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	hid "github.com/sstallion/go-hid"
 	"github.com/tarm/serial"
 	serialenum "go.bug.st/serial"
+	"go.uber.org/zap"
 )
 
 var DataData string
@@ -35,87 +35,78 @@ type arduinoMsg struct {
 	Slidders []int  `json:"s"`
 	Buttons  []int  `json:"b"`
 }
-
-func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
-	var msg arduinoMsg
-	err := json.Unmarshal(buf, &msg)
-	if err != nil {
-		return &DeviceData{
-			Id:     "",
-			Volume: nil,
-			Button: nil,
-			err:    err,
-		}
-	}
-
-	// Convert to normalized float values (0–1)
-	volumes := make([]float32, len(msg.Slidders))
-	for i, v := range msg.Slidders {
-		if invertSliders {
-			v = 255 - v
-		}
-		volumes[i] = roundFloat32(float32(v)/255.0, 2) // since Arduino sends 0–255
-	}
-
-	buttons := make([]bool, len(msg.Buttons))
-	for i, btn := range msg.Buttons {
-		buttons[i] = (btn == 1)
-	}
-
-	return &DeviceData{
-		Id:     msg.Id,
-		Volume: volumes,
-		Button: buttons,
-		err:    nil,
-	}
+type idMsg struct {
+	Id string `json:"id"`
 }
 
-func ListHIDDevices() []string {
+func ListHIDDevices(logger *zap.SugaredLogger) []string {
+	logger = logger.Named("ListHIDDevices")
+
 	// Initialize the hid package.
 	if err := hid.Init(); err != nil {
+		logger.Error("Failed to initialize HID")
 	}
 
 	var paths []string
 
-	//hid.Enumerate(0x2341, 0x8037, func(info *hid.DeviceInfo) error {
+	logger.Debug("Enumerating All HID Devices")
 	hid.Enumerate(hid.VendorIDAny, hid.ProductIDAny, func(info *hid.DeviceInfo) error {
+		for _, path := range paths {
+			if info.Path == path {
+				return nil
+			}
+		}
 		paths = append(paths, info.Path)
 		return nil
 	})
 
+	logger.Debug("Found: ", paths)
+
 	return paths
 }
 
-func ListSerialDevices() []string {
-	ports, err := serialenum.GetPortsList()
+func ListSerialDevices(logger *zap.SugaredLogger) []string {
+	logger = logger.Named("ListSerialDevices")
 
+	logger.Debug("Enumerating all Serial Devices")
+	ports, err := serialenum.GetPortsList()
 	if err != nil {
+		logger.Error("Error enumerating Serial Devices")
 		return nil
 	}
+
+	logger.Debug("Found", ports)
 
 	return ports
 }
 
-func GetDevice() (*Device, error) {
+func GetDevice(logger *zap.SugaredLogger) (*Device, error) {
+	logger = logger.Named("GetDevice")
+
+	logger.Debug("Getting Devices")
+
 	deviceList := Device{
 		HidDev:    make(map[string]string),
 		SerialDev: make(map[string]string),
 	}
 
-	hidDeviceList := ListHIDDevices()
+	hidDeviceList := ListHIDDevices(logger)
 	for _, device := range hidDeviceList {
+		logger.Debug("Opening device: ", device)
 		d, err := hid.OpenPath(device)
 
 		if err != nil {
+			//logger.Error("Error Opening device: ", err)
 			continue
 		}
 
-		// Send a 5 to the HID device to trigger a data push
+		// Send a I to the HID device to trigger a device id push
 		data := make([]byte, 64)
-		data[0] = 5
+		data[0] = 'I'
 		_, err = d.Write(data)
 		if err != nil {
 			// Close connection and end this current loop
+			//logger.Error("Error Writing to device: ", err)
 			d.Close()
 			continue
 		}
@@ -138,10 +129,11 @@ func GetDevice() (*Device, error) {
 			}
 			cleanData = append(cleanData, b)
 		}
-		deviceList.HidDev[parseDeviceData(cleanData, false).Id] = device
+		logger.Debug("Recieved Data: ", string(cleanData))
+		deviceList.HidDev[parseDeviceID(cleanData).Id] = device
 	}
 
-	serialDeviceList := ListSerialDevices()
+	serialDeviceList := ListSerialDevices(logger)
 
 	for _, port := range serialDeviceList {
 		c := &serial.Config{
@@ -195,7 +187,7 @@ func GetDevice() (*Device, error) {
 
 func ReadDeviceDataHID(d *hid.Device, cfg *DeviceConfig) (*DeviceData, error) {
 	buff := make([]byte, 64) // automatically filled with zeros
-	buff[0] = 5
+	buff[0] = 'D'
 	if _, err := d.Write(buff); err != nil {
 		return nil, errors.New("error writing data to device")
 	}
@@ -226,7 +218,6 @@ func ReadDeviceDataHID(d *hid.Device, cfg *DeviceConfig) (*DeviceData, error) {
 	}
 
 	values := parseDeviceData(clean, cfg.SlidderInvert)
-	fmt.Println(values)
 
 	return values, nil
 }
@@ -257,6 +248,56 @@ func ReadDeviceDataSerial(p serialenum.Port, cfg *DeviceConfig) (*DeviceData, er
 	// parse data from the device
 	values := parseDeviceData(data, cfg.SlidderInvert)
 	return values, nil
+}
+
+func parseDeviceData(buf []byte, invertSliders bool) *DeviceData {
+	var msg arduinoMsg
+	err := json.Unmarshal(buf, &msg)
+	if err != nil {
+		return &DeviceData{
+			Id:     "",
+			Volume: nil,
+			Button: nil,
+			err:    err,
+		}
+	}
+
+	// Convert to normalized float values (0–1)
+	volumes := make([]float32, len(msg.Slidders))
+	for i, v := range msg.Slidders {
+		if invertSliders {
+			v = 255 - v
+		}
+		volumes[i] = roundFloat32(float32(v)/255.0, 2) // since Arduino sends 0–255
+	}
+
+	buttons := make([]bool, len(msg.Buttons))
+	for i, btn := range msg.Buttons {
+		buttons[i] = (btn == 1)
+	}
+
+	return &DeviceData{
+		Id:     msg.Id,
+		Volume: volumes,
+		Button: buttons,
+		err:    nil,
+	}
+}
+
+func parseDeviceID(buf []byte) *idMsg {
+	var msg idMsg
+	err := json.Unmarshal(buf, &msg)
+	fmt.Println(string(msg.Id))
+	if err != nil {
+		fmt.Println("error", err)
+		return &idMsg{
+			Id: msg.Id,
+		}
+	}
+
+	return &idMsg{
+		Id: msg.Id,
+	}
 }
 
 func JoinDeviceData(devices []*ParsedAudioData) *ParsedAudioData {
@@ -314,25 +355,18 @@ func roundFloat32(f float32, decimals int) float32 {
 	return float32(math.Round(float64(f)*pow) / pow)
 }
 
-func strPtr(s string) *string { return &s }
+func ScanForDevices(a fyne.App, cfg *Config, logger *zap.SugaredLogger, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string) {
+	logger = logger.Named("devices")
 
-////////////////////////////////////////////
+	logger.Debug("Starting Device Scan")
 
-func HashSlice[T any](slice []T) (string, error) {
-	b, err := json.Marshal(slice)
-	if err != nil {
-		return "", err
-	}
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:]), nil
-}
-
-func ScanForDevices(a fyne.App, cfg *Config, deviceList binding.StringList, connectedDevices binding.BoolList, devices *map[string]*MixMasterInstance, serialNumbers *map[string]string) {
 	// Get a list of all devices pluged into computer
 	pastNum := len(*devices)
 
-	dev, _ := GetDevice()
+	dev, _ := GetDevice(logger)
+
 	for serialNum, _ := range dev.HidDev {
+		logger.Debug("Devices found", SerialNumbers)
 		if serialNum == "" {
 			break
 		}

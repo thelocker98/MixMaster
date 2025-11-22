@@ -27,10 +27,15 @@ func main() {
 	// Parse Flags
 	flag.Parse()
 
-	configPath := configFile
-
 	// Parse Config
+	configPath := configFile
 	cfg := mixmaster.ParseConfig(*configPath)
+
+	// setup logger
+	logger, _ := mixmaster.NewLogger("dev", cfg)
+	named := logger.Named("main")
+	named.Debug("Created logger")
+
 	// Define values
 	fyneDeviceList := binding.NewStringList()
 	fyneDeviceConnected := binding.NewBoolList()
@@ -43,7 +48,7 @@ func main() {
 
 	// Check if show session flag is enabled
 	if *showSessions {
-		dev, _ := mixmaster.GetDevice()
+		dev, _ := mixmaster.GetDevice(logger)
 
 		// List Devices connected to the computer
 		fmt.Println("Device List", dev)
@@ -54,28 +59,32 @@ func main() {
 	a := app.New()
 	if cfg.App.Notifications {
 		a.SendNotification(fyne.NewNotification("Mixmaster", "App has been started"))
+		named.Debug("App has been started")
 	}
 
-	//r, _ := fyne.LoadResourceFromPath("assets/logo.png")
+	// setup logo
 	a.SetIcon(resourceLogoPng)
 	// Create a application window
 	w := a.NewWindow("MixMaster")
 
 	// InitializeUI
-	mixmaster.InitializeUI(a, w, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &pulseSessions, &mpirsSessions)
+	mixmaster.InitializeUI(a, w, logger, cfg, configPath, fyneDeviceList, fyneDeviceConnected, &devices, &pulseSessions, &mpirsSessions)
 
 	// Check if the app is running on a desktop and start system tray
 	if desk, ok := a.(desktop.App); ok {
 		m := fyne.NewMenu("MixMaster",
 			fyne.NewMenuItem("Show", func() {
+				named.Debug("Launching App Window")
 				w.Show()
 			}),
 			// Scan for devices on demand
 			fyne.NewMenuItem("Device Scan", func() {
+				named.Debug("Scanning for Devices ...")
 				pastNum := len(devices)
-				mixmaster.ScanForDevices(a, cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
+				mixmaster.ScanForDevices(a, cfg, logger, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 				if cfg.App.Notifications && len(devices) > pastNum {
 					a.SendNotification(fyne.NewNotification("Mixmaster", "Discovered New Device"))
+					named.Debug("New Device Found")
 				}
 			}))
 
@@ -87,6 +96,7 @@ func main() {
 
 	// Set window name
 	w.SetContent(widget.NewLabel("Mixmaster"))
+
 	// intercept application close and minimize to system tray instead
 	w.SetCloseIntercept(func() {
 		w.Hide()
@@ -115,7 +125,7 @@ func main() {
 			panic("could not creating mpirs client")
 		}
 
-		mixmaster.ScanForDevices(a, cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
+		mixmaster.ScanForDevices(a, cfg, logger, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 
 		for {
 			var deviceData []*mixmaster.ParsedAudioData
@@ -129,7 +139,7 @@ func main() {
 						a.SendNotification(fyne.NewNotification("Mixmaster", "Lost Connection with Device"))
 					}
 					delete(devices, deviceName)
-					mixmaster.ScanForDevices(a, cfg, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
+					mixmaster.ScanForDevices(a, cfg, logger, fyneDeviceList, fyneDeviceConnected, &devices, &serialNumberDevices)
 					continue
 				}
 				// Add Data to the device data array

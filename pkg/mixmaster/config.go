@@ -28,6 +28,8 @@ type AppConfig struct {
 	Theme            string `yaml:"theme"`
 	LaunchGUIOnStart bool   `yaml:"launch_gui_on_start"`
 	Notifications    bool   `yaml:"notifications"`
+	LogFileLocation  string `yaml:"log_file_location"`
+	LogFileName      string `yaml:"log_file_name"`
 }
 
 // This struct stores all the individual devices and groups togeather all the previous structs into a map
