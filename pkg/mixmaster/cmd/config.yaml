@@ -7,7 +7,7 @@ Devices:
         pulse-master-slidders:
             master: 3
         serialNumber: S0S04B00T0001
-    hello:
+    New Board:
         pulse-master-slidders:
             master: 4
         app-media-control:
@@ -15,7 +15,7 @@ Devices:
                 back: -1
                 playpause: 0
                 next: -1
-        serialNumber: H0S05B10T0003
+        serialNumber: H0S05B10T0001
     old hid:
         pulse-app-slidders:
             vivaldi-bin: 0

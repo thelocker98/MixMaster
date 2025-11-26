@@ -24,7 +24,7 @@ void setup() {
 
   // Initialize NeoPixel strip object (REQUIRED)
   led.begin();
-  led.setBrightness(25);
+  led.setBrightness(50);
 }
 
 
@@ -32,14 +32,12 @@ void setup() {
 // the loop function runs over and over again forever
 void loop() {
   // Wait for a Second
-  for (int i = 0; i < 12; i++)
-    led.setPixelColor(i, led.Color(100, 200, 100));
+  for (int i = 0; i < 5; i++)
+    led.setPixelColor(i, led.Color(255, 0, 0));
 
   led.show();
   delay(100);
 
-  for (int i = 0; i < 12; i++)
-    led.setPixelColor(i, led.Color(0, 0, 0));
   led.show();
   delay(100);
   updateButtons();

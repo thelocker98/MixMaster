@@ -7,24 +7,22 @@ uint8_t rawhidData[PACKET_SIZE];
 String jsonData;
 
 
-const String deviceSerial = "H0S02B03T0001";
-
+const String deviceSerial = "H0S05B10T0001";
 
 // --- Analog Sliders ---
-const int NUM_SLIDERS = 2;
-const int analogInputs[NUM_SLIDERS] = { 10, 18 };
+const int NUM_SLIDERS = 5;
+const int analogInputs[NUM_SLIDERS] = { A0, A1, A2, A3, A6 };
 int analogSliderValues[NUM_SLIDERS];
 
 // --- Buttons ---
-const int NUM_BUTTONS = 3;
-const int buttonPins[NUM_BUTTONS] = { 2, 3, 4 };
+const int NUM_BUTTONS = 10;
+const int buttonPins[NUM_BUTTONS] = { 5, 6, 7, 8, 9, 10, 15, 16, 14, 3 };
 int buttonStates[NUM_BUTTONS];
 bool buttonTriggered[NUM_BUTTONS];
 
 
+
 void setup() {
-  // Setup Serial
-  Serial.begin(115200);
   // Initiate Analog Sliders
   for (int i = 0; i < NUM_SLIDERS; i++) {
     pinMode(analogInputs[i], INPUT);
@@ -53,11 +51,11 @@ void loop() {
       }
     }
 
-    if (rxBuffer[0] == 5) {
-      delay(10);
+    if (rxBuffer[0] == 'D') {
+      delay(1);
       sendData();
-    } else if (rxBuffer[0] == 6) {
-      delay(20);
+    } else if (rxBuffer[0] == 'I') {
+      delay(1);
       sendSerialNum(String(deviceSerial));
     }
     memset(rxBuffer, 0, sizeof(rxBuffer));  // clear rxBuffer                               // reset byte count
@@ -83,6 +81,7 @@ void sendData() {
 }
 
 void sendSerialNum(String serialNum) {
+  serialNum = "{\"Id\":\"" + serialNum + "\"}";
 
   // -------- Send raw hid packet --------
   for (int x = 0; x < serialNum.length(); x = x) {
@@ -137,6 +136,5 @@ String createJsonPacket() {
     }
   }
   data += "]}";
-  Serial.println(data);
   return data;
 }
